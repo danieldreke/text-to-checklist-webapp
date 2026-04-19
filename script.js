@@ -106,6 +106,10 @@ function renderItem(item) {
   handle.draggable = true;
   handle.addEventListener('dragstart', (e) => onDragStart(e, item.id, div));
   handle.addEventListener('dragend', () => onDragEnd(div));
+  handle.addEventListener('touchstart', (e) => onTouchStart(e, div), { passive: false });
+  handle.addEventListener('touchmove', (e) => onTouchMove(e), { passive: false });
+  handle.addEventListener('touchend', () => onTouchEnd(div));
+  handle.addEventListener('touchcancel', () => onTouchEnd(div));
   div.appendChild(handle);
 
   div.addEventListener('dragover', (e) => onDragOver(e, div));
@@ -209,14 +213,41 @@ function onDragOver(e, div) {
   if (!draggingDiv || div === draggingDiv) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
+  moveDraggingOver(div, e.clientY);
+}
+
+function moveDraggingOver(div, clientY) {
   const rect = div.getBoundingClientRect();
-  const above = (e.clientY - rect.top) < rect.height / 2;
+  const above = (clientY - rect.top) < rect.height / 2;
   const parent = div.parentNode;
   if (above) {
     if (div.previousSibling !== draggingDiv) parent.insertBefore(draggingDiv, div);
   } else {
     if (div.nextSibling !== draggingDiv) parent.insertBefore(draggingDiv, div.nextSibling);
   }
+}
+
+function onTouchStart(e, div) {
+  e.preventDefault();
+  draggingDiv = div;
+  div.classList.add('dragging');
+}
+
+function onTouchMove(e) {
+  if (!draggingDiv) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!target) return;
+  const targetItem = target.closest('.item');
+  if (!targetItem || targetItem === draggingDiv) return;
+  if (targetItem.parentNode !== draggingDiv.parentNode) return;
+  moveDraggingOver(targetItem, touch.clientY);
+}
+
+function onTouchEnd(div) {
+  if (!draggingDiv) return;
+  onDragEnd(div);
 }
 
 function reindex() {
