@@ -4,6 +4,8 @@
 
 Turn text into an interactive checklist. Copy  checklist to another device via QR code.
 
+Open [Text to checklist](https://danieldreke.github.io/text-to-checklist-webapp/)
+
 ## Features
 
 - Turn any text into a checklist with one click
