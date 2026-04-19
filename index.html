@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text to checklist</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Text to checklist</h1>
+      <div class="header-actions">
+        <button class="secondary theme-toggle" id="themeToggle" onclick="toggleTheme()">Dark</button>
+      </div>
+    </div>
+    <div class="subheader">
+      <button class="secondary theme-toggle" id="editorToggle" onclick="toggleEditor()">Hide text input</button>
+    </div>
+    <div class="layout" id="layout">
+      <div class="pane editor">
+        <textarea id="input" placeholder="Paste your text here — one item per line"></textarea>
+        <div class="controls">
+          <button onclick="createList()">Create checklist</button>
+          <button class="secondary" onclick="pasteFromClipboard()">Paste</button>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="controls">
+          <button class="secondary" id="undoBtn" onclick="undo()" disabled>Undo</button>
+          <button class="secondary" id="redoBtn" onclick="redo()" disabled>Redo</button>
+          <button class="secondary" onclick="addItem()">Add item</button>
+          <button class="secondary theme-toggle" id="sortBtn" onclick="toggleSort()">Sort A-Z</button>
+          <button class="secondary theme-toggle" id="checkedToggle" onclick="toggleCheckedVisibility()">Hide checked</button>
+          <button class="secondary" onclick="copyToClipboard()">Copy list</button>
+          <button class="secondary" onclick="createQrCode()">Show QR code</button>
+        </div>
+        <div id="list" class="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="qrModal" class="qr-modal" style="display:none" onclick="closeQrCode()">
+    <div class="qr-modal-content" onclick="event.stopPropagation()">
+      <div id="qrCode"></div>
+      <div id="qrText"></div>
+      <div class="qr-actions">
+        <button class="secondary" onclick="copyQrCode()">Copy QR code</button>
+        <button class="secondary" onclick="copyQrText()">Copy text</button>
+        <button onclick="closeQrCode()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="qrcode.min.keeex.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
