@@ -186,10 +186,11 @@ button:disabled {
 }
 
 .item input[type="checkbox"] {
-  width: 1rem;
-  height: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   cursor: pointer;
   flex-shrink: 0;
+  accent-color: #18a84d;
 }
 
 .item label {

@@ -256,11 +256,15 @@ function reindex() {
 
 function commitEdit(id, value) {
   const item = items.find(i => i.id === id);
-  if (!item) { editingId = null; pendingId = null; return; }
+  if (!item) {
+    if (editingId === id) editingId = null;
+    if (pendingId === id) pendingId = null;
+    return;
+  }
   const trimmed = value.trim();
   const wasPending = pendingId === id;
-  editingId = null;
-  pendingId = null;
+  if (editingId === id) editingId = null;
+  if (pendingId === id) pendingId = null;
   if (!trimmed) {
     items = items.filter(i => i.id !== id);
     if (!wasPending) pushHistory();
