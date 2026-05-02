@@ -2,6 +2,49 @@ let items = [];
 let history = [[]];
 let historyIndex = 0;
 
+let textareaHistory = [''];
+let textareaHistoryIndex = 0;
+let textareaActiveLine = 1;
+
+function initTextareaHistory() {
+  const val = document.getElementById('input').value;
+  textareaHistory = [val];
+  textareaHistoryIndex = 0;
+  textareaActiveLine = 1;
+}
+
+function pushTextareaHistory(val) {
+  if (val === textareaHistory[textareaHistoryIndex]) return;
+  textareaHistory = textareaHistory.slice(0, textareaHistoryIndex + 1);
+  textareaHistory.push(val);
+  textareaHistoryIndex = textareaHistory.length - 1;
+  updateUndoRedo();
+}
+
+function getTextareaLine() {
+  const ta = document.getElementById('input');
+  return ta.value.substring(0, ta.selectionStart).split('\n').length;
+}
+
+function onTextareaInput() {
+  updateToggleCheckboxBtn();
+  const val = document.getElementById('input').value;
+  const prevLines = textareaHistory[textareaHistoryIndex].split('\n').length;
+  const currLines = val.split('\n').length;
+  if (currLines !== prevLines) {
+    textareaActiveLine = getTextareaLine();
+    pushTextareaHistory(val);
+  }
+}
+
+function onTextareaCursorMove() {
+  const line = getTextareaLine();
+  if (line !== textareaActiveLine) {
+    textareaActiveLine = line;
+    pushTextareaHistory(document.getElementById('input').value);
+  }
+}
+
 function snapshot() {
   return items.map(i => ({ ...i }));
 }
@@ -20,6 +63,14 @@ function applyHistory() {
 }
 
 function undo() {
+  if (currentView === 'text') {
+    if (textareaHistoryIndex > 0) {
+      textareaHistoryIndex--;
+      document.getElementById('input').value = textareaHistory[textareaHistoryIndex];
+      updateUndoRedo();
+    }
+    return;
+  }
   if (historyIndex > 0) {
     historyIndex--;
     applyHistory();
@@ -27,6 +78,14 @@ function undo() {
 }
 
 function redo() {
+  if (currentView === 'text') {
+    if (textareaHistoryIndex < textareaHistory.length - 1) {
+      textareaHistoryIndex++;
+      document.getElementById('input').value = textareaHistory[textareaHistoryIndex];
+      updateUndoRedo();
+    }
+    return;
+  }
   if (historyIndex < history.length - 1) {
     historyIndex++;
     applyHistory();
@@ -34,8 +93,13 @@ function redo() {
 }
 
 function updateUndoRedo() {
-  document.getElementById('undoBtn').disabled = historyIndex <= 0;
-  document.getElementById('redoBtn').disabled = historyIndex >= history.length - 1;
+  if (currentView === 'text') {
+    document.getElementById('undoBtn').disabled = textareaHistoryIndex <= 0;
+    document.getElementById('redoBtn').disabled = textareaHistoryIndex >= textareaHistory.length - 1;
+  } else {
+    document.getElementById('undoBtn').disabled = historyIndex <= 0;
+    document.getElementById('redoBtn').disabled = historyIndex >= history.length - 1;
+  }
 }
 
 function parseLine(line) {
@@ -44,7 +108,35 @@ function parseLine(line) {
   return { text: line, checked: false };
 }
 
-function createList() {
+let currentView = localStorage.getItem('currentView') || 'text';
+
+function applyView() {
+  const layout = document.getElementById('layout');
+  layout.dataset.view = currentView;
+  document.getElementById('tabText').classList.toggle('active', currentView === 'text');
+  document.getElementById('tabChecklist').classList.toggle('active', currentView === 'checklist');
+  document.querySelectorAll('[data-text-only]').forEach(el => {
+    el.style.display = currentView === 'text' ? '' : 'none';
+  });
+}
+
+function switchView(view) {
+  if (view === 'checklist') {
+    parseTextToList();
+  } else {
+    const ta = document.getElementById('input');
+    ta.value = serializeList();
+    initTextareaHistory();
+    updateToggleCheckboxBtn();
+  }
+  currentView = view;
+  updateUndoRedo();
+  updateClearBtn();
+  localStorage.setItem('currentView', view);
+  applyView();
+}
+
+function parseTextToList() {
   const text = document.getElementById('input').value;
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const seen = new Set();
@@ -62,12 +154,14 @@ function createList() {
     originalIndex: idx,
     checked: parsed.checked,
   }));
-  applyCheckedVisibility(false);
-  pushHistory();
   render();
   if (duplicates > 0) {
     showToast(`${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped`, 'warning');
   }
+}
+
+function createList() {
+  switchView('checklist');
 }
 
 function toggle(id) {
@@ -81,7 +175,31 @@ function toggle(id) {
 let editingId = null;
 let pendingId = null;
 
+function saveToStorage() {
+  localStorage.setItem('checklist-items', JSON.stringify(items));
+}
+
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem('checklist-items');
+    if (saved) {
+      items = JSON.parse(saved);
+      history = [items.map(i => ({ ...i }))];
+      historyIndex = 0;
+      updateUndoRedo();
+      if (currentView === 'text') {
+        document.getElementById('input').value = serializeList();
+        initTextareaHistory();
+        updateToggleCheckboxBtn();
+      } else {
+        render();
+      }
+    }
+  } catch {}
+}
+
 function render() {
+  saveToStorage();
   const list = document.getElementById('list');
   list.innerHTML = '';
 
@@ -308,6 +426,52 @@ function addItem() {
   render();
 }
 
+function clearDone() {
+  const count = items.filter(i => i.checked).length;
+  if (count === 0) return;
+  items = items.filter(i => !i.checked);
+  reindex();
+  pushHistory();
+  render();
+  showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
+}
+
+function toggleMenu() {
+  document.getElementById('dropdown').classList.toggle('open');
+}
+
+function closeMenu() {
+  document.getElementById('dropdown').classList.remove('open');
+}
+
+function updateClearBtn() {
+  const btn = document.getElementById('clearBtn');
+  if (btn) btn.textContent = currentView === 'text' ? 'Clear text' : 'Clear list';
+}
+
+function clearAction() {
+  if (currentView === 'text') clearText();
+  else clearList();
+  closeMenu();
+}
+
+function clearText() {
+  const ta = document.getElementById('input');
+  if (!ta.value) return;
+  ta.value = '';
+  pushTextareaHistory('');
+  updateToggleCheckboxBtn();
+  showToast('Text cleared', 'warning', TRASH_ICON);
+}
+
+function clearList() {
+  if (items.length === 0) return;
+  items = [];
+  pushHistory();
+  render();
+  showToast('List cleared', 'warning', TRASH_ICON);
+}
+
 function removeItem(id) {
   const item = items.find(i => i.id === id);
   items = items.filter(i => i.id !== id);
@@ -338,17 +502,35 @@ async function copyToClipboard() {
   showToast('List copied to clipboard');
 }
 
+function updateToggleCheckboxBtn() {
+  const ta = document.getElementById('input');
+  const btn = document.getElementById('toggleCheckboxBtn');
+  const hasChecked = ta.value.split('\n').some(l => /^\[[xX]\]/.test(l));
+  btn.disabled = hasChecked;
+}
+
+function toggleCheckboxFormat() {
+  const ta = document.getElementById('input');
+  const lines = ta.value.split('\n');
+  const hasAny = lines.some(l => /^\[[ xX]\]/.test(l));
+  ta.value = lines.map(l => {
+    if (hasAny) return l.replace(/^\[[ xX]\]\s?/, '');
+    return l.length ? '[ ] ' + l : l;
+  }).join('\n');
+  updateToggleCheckboxBtn();
+}
+
 async function pasteFromClipboard() {
   const input = document.getElementById('input');
   try {
     const text = await navigator.clipboard.readText();
     input.value = text;
-    showToast('Pasted from clipboard');
   } catch {
     input.focus();
     document.execCommand('paste');
-    showToast('Pasted from clipboard');
   }
+  updateToggleCheckboxBtn();
+  showToast('Pasted from clipboard');
 }
 
 const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
@@ -376,19 +558,6 @@ function toggleTheme() {
   applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
-function applyEditorVisibility(hidden) {
-  const layout = document.getElementById('layout');
-  layout.classList.toggle('editor-hidden', hidden);
-  const btn = document.getElementById('editorToggle');
-  btn.innerHTML = (hidden ? EYE_ICON : EYE_OFF_ICON) +
-    '<span>' + (hidden ? 'Show text input' : 'Hide text input') + '</span>';
-  localStorage.setItem('editorHidden', hidden ? '1' : '0');
-}
-
-function toggleEditor() {
-  const hidden = !document.getElementById('layout').classList.contains('editor-hidden');
-  applyEditorVisibility(hidden);
-}
 
 let sortDirection = 'asc';
 
@@ -401,12 +570,21 @@ function updateSortButton() {
 
 function toggleSort() {
   const asc = sortDirection === 'asc';
-  items.sort((a, b) => asc
-    ? a.text.localeCompare(b.text)
-    : b.text.localeCompare(a.text));
-  reindex();
-  pushHistory();
-  render();
+  if (currentView === 'text') {
+    const ta = document.getElementById('input');
+    const sorted = ta.value.split('\n')
+      .filter(l => l.trim())
+      .sort((a, b) => asc ? a.localeCompare(b) : b.localeCompare(a));
+    ta.value = sorted.join('\n');
+    pushTextareaHistory(ta.value);
+  } else {
+    items.sort((a, b) => asc
+      ? a.text.localeCompare(b.text)
+      : b.text.localeCompare(a.text));
+    reindex();
+    pushHistory();
+    render();
+  }
   sortDirection = asc ? 'desc' : 'asc';
   updateSortButton();
 }
@@ -505,6 +683,11 @@ function closeQrCode() {
   document.getElementById('qrText').textContent = '';
 }
 
+document.addEventListener('click', (e) => {
+  const container = document.getElementById('menuContainer');
+  if (container && !container.contains(e.target)) closeMenu();
+});
+
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -512,10 +695,21 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') closeQrCode();
 });
 
-applyEditorVisibility(localStorage.getItem('editorHidden') === '1');
 applyCheckedVisibility(localStorage.getItem('checkedHidden') === '1');
 updateSortButton();
 (function initTheme() {
   const saved = localStorage.getItem('theme');
   applyTheme(saved || 'dark');
+})();
+applyView();
+loadFromStorage();
+initTextareaHistory();
+updateToggleCheckboxBtn();
+updateUndoRedo();
+updateClearBtn();
+(function initTextareaListeners() {
+  const ta = document.getElementById('input');
+  ta.addEventListener('blur', () => pushTextareaHistory(ta.value));
+  ta.addEventListener('keyup', onTextareaCursorMove);
+  ta.addEventListener('mouseup', onTextareaCursorMove);
 })();

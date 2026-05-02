@@ -9,32 +9,40 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Text to checklist</h1>
-      <div class="header-actions">
+      <div class="header-title">
+        <h1>Text to checklist</h1>
         <button class="secondary theme-toggle" id="themeToggle" onclick="toggleTheme()">Dark</button>
       </div>
-    </div>
-    <div class="subheader">
-      <button class="secondary theme-toggle" id="editorToggle" onclick="toggleEditor()">Hide text input</button>
-    </div>
-    <div class="layout" id="layout">
-      <div class="pane editor">
-        <textarea id="input" placeholder="Paste your text here — one item per line"></textarea>
-        <div class="controls">
-          <button onclick="createList()">Create checklist</button>
-          <button class="secondary" onclick="pasteFromClipboard()">Paste</button>
+      <div class="header-actions">
+        <div class="view-tabs">
+          <button class="view-tab" id="tabText" onclick="switchView('text')">Text</button>
+          <button class="view-tab" id="tabChecklist" onclick="switchView('checklist')">Checklist</button>
+        </div>
+        <button class="secondary" id="undoBtn" onclick="undo()" disabled>Undo</button>
+        <button class="secondary" id="redoBtn" onclick="redo()" disabled>Redo</button>
+        <button class="secondary" onclick="addItem()">Add item</button>
+        <button class="secondary theme-toggle" id="checkedToggle" onclick="toggleCheckedVisibility()">Hide checked</button>
+        <button class="secondary" onclick="createQrCode()">Show QR code</button>
+        <div class="menu-container" id="menuContainer">
+          <button class="secondary" id="menuBtn" onclick="toggleMenu()" title="More options">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>
+          </button>
+          <div class="dropdown" id="dropdown">
+            <button class="secondary" data-text-only onclick="pasteFromClipboard(); closeMenu()">Paste</button>
+            <button class="secondary" id="toggleCheckboxBtn" data-text-only onclick="toggleCheckboxFormat()">[ ] Toggle</button>
+            <button class="secondary theme-toggle" id="sortBtn" onclick="toggleSort()">Sort A-Z</button>
+            <button class="secondary" onclick="copyToClipboard(); closeMenu()">Copy list</button>
+            <button class="secondary danger" onclick="clearDone(); closeMenu()">Clear done</button>
+            <button class="secondary danger" id="clearBtn" onclick="clearAction()">Clear list</button>
+          </div>
         </div>
       </div>
+    </div>
+    <div class="layout" id="layout" data-view="text">
+      <div class="pane editor">
+        <textarea id="input" placeholder="Paste your text here — one item per line" oninput="onTextareaInput(event)"></textarea>
+      </div>
       <div class="pane">
-        <div class="controls">
-          <button class="secondary" id="undoBtn" onclick="undo()" disabled>Undo</button>
-          <button class="secondary" id="redoBtn" onclick="redo()" disabled>Redo</button>
-          <button class="secondary" onclick="addItem()">Add item</button>
-          <button class="secondary theme-toggle" id="sortBtn" onclick="toggleSort()">Sort A-Z</button>
-          <button class="secondary theme-toggle" id="checkedToggle" onclick="toggleCheckedVisibility()">Hide checked</button>
-          <button class="secondary" onclick="copyToClipboard()">Copy list</button>
-          <button class="secondary" onclick="createQrCode()">Show QR code</button>
-        </div>
         <div id="list" class="list"></div>
       </div>
     </div>
