@@ -60,6 +60,12 @@ body {
   width: 100%;
 }
 
+.header-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .header-actions {
   display: flex;
   flex-wrap: wrap;
@@ -87,7 +93,8 @@ h1 {
 }
 
 #themeToggle,
-#menuBtn {
+#menuBtn,
+#github-link {
   width: 2.2rem;
   height: 2.2rem;
   padding: 0;
@@ -191,7 +198,7 @@ textarea:focus {
 }
 
 
-button {
+button, a.secondary {
   padding: 0.5rem 1rem;
   background: var(--accent);
   color: var(--accent-text);
@@ -199,17 +206,18 @@ button {
   border-radius: 6px;
   font-size: 0.95rem;
   cursor: pointer;
+  text-decoration: none;
 }
 
-button:hover:not(:disabled) { background: var(--accent-hover); }
+button:hover:not(:disabled), a.secondary:hover { background: var(--accent-hover); }
 
-button.secondary {
+button.secondary, a.secondary {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
 }
 
-button.secondary:hover:not(:disabled) {
+button.secondary:hover:not(:disabled), a.secondary:hover {
   background: var(--surface-hover);
 }
 

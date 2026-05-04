@@ -5,6 +5,7 @@ let historyIndex = 0;
 let textareaHistory = [''];
 let textareaHistoryIndex = 0;
 let textareaActiveLine = 1;
+let showUncheckedBrackets = false;
 
 function initTextareaHistory() {
   const val = document.getElementById('input').value;
@@ -27,7 +28,6 @@ function getTextareaLine() {
 }
 
 function onTextareaInput() {
-  updateToggleCheckboxBtn();
   const val = document.getElementById('input').value;
   const prevLines = textareaHistory[textareaHistoryIndex].split('\n').length;
   const currLines = val.split('\n').length;
@@ -118,6 +118,9 @@ function applyView() {
   document.querySelectorAll('[data-text-only]').forEach(el => {
     el.style.display = currentView === 'text' ? '' : 'none';
   });
+  document.querySelectorAll('[data-checklist-only]').forEach(el => {
+    el.style.display = currentView === 'checklist' ? '' : 'none';
+  });
 }
 
 function switchView(view) {
@@ -127,7 +130,7 @@ function switchView(view) {
     const ta = document.getElementById('input');
     ta.value = serializeList();
     initTextareaHistory();
-    updateToggleCheckboxBtn();
+
   }
   currentView = view;
   updateUndoRedo();
@@ -190,7 +193,6 @@ function loadFromStorage() {
       if (currentView === 'text') {
         document.getElementById('input').value = serializeList();
         initTextareaHistory();
-        updateToggleCheckboxBtn();
       } else {
         render();
       }
@@ -427,6 +429,17 @@ function addItem() {
 }
 
 function clearDone() {
+  if (currentView === 'text') {
+    const ta = document.getElementById('input');
+    const lines = ta.value.split('\n');
+    const filtered = lines.filter(l => !/^\[[xX]\]/.test(l));
+    const count = lines.length - filtered.length;
+    if (count === 0) return;
+    ta.value = filtered.join('\n');
+    pushTextareaHistory(ta.value);
+    showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
+    return;
+  }
   const count = items.filter(i => i.checked).length;
   if (count === 0) return;
   items = items.filter(i => !i.checked);
@@ -460,7 +473,6 @@ function clearText() {
   if (!ta.value) return;
   ta.value = '';
   pushTextareaHistory('');
-  updateToggleCheckboxBtn();
   showToast('Text cleared', 'warning', TRASH_ICON);
 }
 
@@ -483,7 +495,7 @@ function removeItem(id) {
 function serializeList() {
   return [...items]
     .sort((a, b) => a.originalIndex - b.originalIndex)
-    .map(i => `[${i.checked ? 'x' : ' '}] ${i.text}`)
+    .map(i => i.checked ? `[x] ${i.text}` : showUncheckedBrackets ? `[ ] ${i.text}` : i.text)
     .join('\n');
 }
 
@@ -502,22 +514,20 @@ async function copyToClipboard() {
   showToast('List copied to clipboard');
 }
 
-function updateToggleCheckboxBtn() {
-  const ta = document.getElementById('input');
-  const btn = document.getElementById('toggleCheckboxBtn');
-  const hasChecked = ta.value.split('\n').some(l => /^\[[xX]\]/.test(l));
-  btn.disabled = hasChecked;
-}
 
 function toggleCheckboxFormat() {
   const ta = document.getElementById('input');
   const lines = ta.value.split('\n');
-  const hasAny = lines.some(l => /^\[[ xX]\]/.test(l));
+  showUncheckedBrackets = !showUncheckedBrackets;
   ta.value = lines.map(l => {
-    if (hasAny) return l.replace(/^\[[ xX]\]\s?/, '');
-    return l.length ? '[ ] ' + l : l;
+    if (/^\[[xX]\]/.test(l)) return l;
+    if (showUncheckedBrackets) {
+      return l.length && !/^\[[ ]\]/.test(l) ? '[ ] ' + l : l;
+    } else {
+      return l.replace(/^\[ \]\s?/, '');
+    }
   }).join('\n');
-  updateToggleCheckboxBtn();
+  pushTextareaHistory(ta.value);
 }
 
 async function pasteFromClipboard() {
@@ -529,7 +539,6 @@ async function pasteFromClipboard() {
     input.focus();
     document.execCommand('paste');
   }
-  updateToggleCheckboxBtn();
   showToast('Pasted from clipboard');
 }
 
@@ -704,7 +713,6 @@ updateSortButton();
 applyView();
 loadFromStorage();
 initTextareaHistory();
-updateToggleCheckboxBtn();
 updateUndoRedo();
 updateClearBtn();
 (function initTextareaListeners() {
@@ -713,3 +721,6 @@ updateClearBtn();
   ta.addEventListener('keyup', onTextareaCursorMove);
   ta.addEventListener('mouseup', onTextareaCursorMove);
 })();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./serviceworker.js');
+}
