@@ -997,12 +997,45 @@ function clearDone() {
   showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
 }
 
+function positionDropdown() {
+  const dropdown = document.getElementById('dropdown');
+  const menuBtn = document.getElementById('menuBtn');
+  if (!dropdown || !menuBtn) return;
+
+  const rect = menuBtn.getBoundingClientRect();
+  const dropdownHeight = dropdown.offsetHeight;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const padding = 8;
+
+  if (spaceBelow < dropdownHeight + padding && spaceAbove > spaceBelow) {
+    dropdown.style.bottom = (window.innerHeight - rect.top + padding) + 'px';
+    dropdown.style.top = 'auto';
+  } else {
+    dropdown.style.top = (rect.bottom + padding) + 'px';
+    dropdown.style.bottom = 'auto';
+  }
+
+  const menuContainer = document.getElementById('menuContainer');
+  const right = window.innerWidth - rect.right;
+  dropdown.style.right = Math.max(padding, right) + 'px';
+}
+
 function toggleMenu() {
-  document.getElementById('dropdown').classList.toggle('open');
+  const dropdown = document.getElementById('dropdown');
+  dropdown.classList.toggle('open');
+  if (dropdown.classList.contains('open')) {
+    positionDropdown();
+    window.addEventListener('scroll', positionDropdown);
+  } else {
+    window.removeEventListener('scroll', positionDropdown);
+  }
 }
 
 function closeMenu() {
-  document.getElementById('dropdown').classList.remove('open');
+  const dropdown = document.getElementById('dropdown');
+  dropdown.classList.remove('open');
+  window.removeEventListener('scroll', positionDropdown);
 }
 
 function updateClearBtn() {
@@ -1243,6 +1276,12 @@ function closeQrCode() {
 document.addEventListener('click', (e) => {
   const container = document.getElementById('menuContainer');
   if (container && !container.contains(e.target)) closeMenu();
+});
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('dropdown')?.classList.contains('open')) {
+    positionDropdown();
+  }
 });
 
 document.addEventListener('keydown', (e) => {
