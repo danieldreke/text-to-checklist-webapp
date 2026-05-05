@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Text to checklist</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png?t=1">
   <meta name="theme-color" content="#18a84d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Checklist">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="apple-touch-icon" href="icons/icon-192.png?t=1">
+  <link rel="stylesheet" href="styles.css?t=1">
 </head>
 <body>
   <div class="container">
@@ -49,6 +49,10 @@
         </div>
       </div>
     </div>
+    <div class="list-tabs-row">
+      <span class="list-tabs-label">Lists</span>
+      <div id="listTabs" class="list-tabs"></div>
+    </div>
     <div class="layout" id="layout" data-view="text">
       <div class="pane editor">
         <textarea id="input" placeholder="Paste your text here — one item per line" oninput="onTextareaInput(event)"></textarea>
@@ -71,7 +75,7 @@
     </div>
   </div>
 
-  <script src="qrcode.min.keeex.js"></script>
-  <script src="script.js"></script>
+  <script src="qrcode.min.keeex.js?t=1"></script>
+  <script src="script.js?t=1"></script>
 </body>
 </html>

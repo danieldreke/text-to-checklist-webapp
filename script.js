@@ -7,6 +7,372 @@ let textareaHistoryIndex = 0;
 let textareaActiveLine = 1;
 let showUncheckedBrackets = false;
 
+let lists = [];
+let activeListId = null;
+let renamingListId = null;
+let pendingListId = null;
+let pendingListPrevActiveId = null;
+let deletedListUndo = null;
+
+let draggingTabEl = null;
+let tabTouchStartX = 0;
+let tabTouchDragging = false;
+
+function generateId() {
+  return 'list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function getActiveList() {
+  return lists.find(l => l.id === activeListId);
+}
+
+function saveCurrentListItems() {
+  const list = getActiveList();
+  if (list) list.items = items.map(i => ({ ...i }));
+}
+
+function saveCurrentState() {
+  if (currentView === 'text') {
+    const text = document.getElementById('input').value;
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const seen = new Set();
+    items = [];
+    lines.forEach((line, idx) => {
+      const parsed = parseLine(line);
+      if (seen.has(parsed.text)) return;
+      seen.add(parsed.text);
+      items.push({ id: 'item-' + idx + '-' + Date.now(), text: parsed.text, originalIndex: idx, checked: parsed.checked });
+    });
+  }
+  saveCurrentListItems();
+}
+
+function loadActiveListState() {
+  const list = getActiveList();
+  items = list ? list.items.map(i => ({ ...i })) : [];
+  history = [items.map(i => ({ ...i }))];
+  historyIndex = 0;
+  editingId = null;
+  pendingId = null;
+  if (currentView === 'text') {
+    const ta = document.getElementById('input');
+    ta.value = serializeList();
+    initTextareaHistory();
+  } else {
+    render();
+  }
+  updateUndoRedo();
+}
+
+function switchList(id) {
+  if (id === activeListId) return;
+  saveCurrentState();
+  saveToStorage();
+  activeListId = id;
+  loadActiveListState();
+  localStorage.setItem('checklist-active', activeListId);
+  renderListTabs();
+}
+
+function addList() {
+  saveCurrentState();
+  const id = generateId();
+  pendingListId = id;
+  pendingListPrevActiveId = activeListId;
+  lists.push({ id, name: 'List ' + (lists.length + 1), items: [] });
+  activeListId = id;
+  items = [];
+  history = [[]];
+  historyIndex = 0;
+  editingId = null;
+  pendingId = null;
+  if (currentView === 'text') {
+    document.getElementById('input').value = '';
+    initTextareaHistory();
+  } else {
+    render();
+  }
+  updateUndoRedo();
+  saveToStorage();
+  renderListTabs();
+  setTimeout(() => startRenameList(id), 0);
+}
+
+function deleteList(id) {
+  if (lists.length <= 1) return;
+  const list = lists.find(l => l.id === id);
+  if (!list) return;
+  showConfirm(`Delete "${list.name}"?`, () => performDeleteList(id));
+}
+
+function performDeleteList(id) {
+  if (lists.length <= 1) return;
+  const idx = lists.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  const snapshot = { ...lists[idx], items: lists[idx].items.map(i => ({ ...i })) };
+  const wasActive = activeListId === id;
+  lists = lists.filter(l => l.id !== id);
+  if (wasActive) {
+    activeListId = lists[Math.min(idx, lists.length - 1)].id;
+    loadActiveListState();
+  }
+  saveToStorage();
+  renderListTabs();
+  deletedListUndo = { list: snapshot, idx, wasActive };
+  updateUndoRedo();
+  showUndoToast(`"${snapshot.name}" deleted`);
+}
+
+function undoDeleteList() {
+  if (!deletedListUndo) return;
+  const { list, idx, wasActive } = deletedListUndo;
+  deletedListUndo = null;
+  lists.splice(idx, 0, list);
+  if (wasActive) {
+    activeListId = list.id;
+    loadActiveListState();
+  }
+  saveToStorage();
+  renderListTabs();
+  updateUndoRedo();
+  showToast(`"${list.name}" restored`);
+}
+
+function showConfirm(message, onOk) {
+  let modal = document.getElementById('confirmModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'confirmModal';
+    modal.className = 'confirm-modal';
+    modal.innerHTML =
+      '<div class="confirm-content">' +
+        '<p id="confirmMsg"></p>' +
+        '<div class="confirm-actions">' +
+          '<button class="secondary" id="confirmCancelBtn">Cancel</button>' +
+          '<button class="secondary danger" id="confirmOkBtn">Delete</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+  }
+  document.getElementById('confirmMsg').textContent = message;
+  modal.style.display = 'flex';
+  document.getElementById('confirmOkBtn').onclick = () => { modal.style.display = 'none'; onOk(); };
+  document.getElementById('confirmCancelBtn').onclick = () => { modal.style.display = 'none'; };
+  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+}
+
+function showUndoToast(message) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.className = 'toast warning';
+  toast.innerHTML = TRASH_ICON + '<span>' + message + '</span>';
+  const undoBtn = document.createElement('button');
+  undoBtn.className = 'toast-undo';
+  undoBtn.textContent = 'Undo';
+  undoBtn.addEventListener('click', () => {
+    toast.classList.remove('show');
+    clearTimeout(toast._hideTimer);
+    undoDeleteList();
+  });
+  toast.appendChild(undoBtn);
+  toast.classList.add('show');
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
+function measureTextWidth(text, el) {
+  const canvas = measureTextWidth._canvas || (measureTextWidth._canvas = document.createElement('canvas'));
+  const ctx = canvas.getContext('2d');
+  const style = window.getComputedStyle(el);
+  ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  return ctx.measureText(text).width;
+}
+
+function startRenameList(id) {
+  renamingListId = id;
+  const existingBtn = document.querySelector(`.list-tab[data-id="${id}"] .list-tab-btn`);
+  const minWidth = existingBtn ? existingBtn.offsetWidth : 60;
+  renderListTabs();
+  const input = document.querySelector('.list-tab-input');
+  if (input) {
+    input.style.width = minWidth + 'px';
+    input.addEventListener('input', () => {
+      const textWidth = measureTextWidth(input.value, input);
+      input.style.width = Math.max(minWidth, textWidth + 16) + 'px';
+    });
+    input.focus();
+    input.select();
+  }
+}
+
+function commitRenameList(id, name) {
+  if (renamingListId !== id) return;
+  const list = lists.find(l => l.id === id);
+  if (list) list.name = name.trim() || list.name;
+  renamingListId = null;
+  pendingListId = null;
+  pendingListPrevActiveId = null;
+  saveToStorage();
+  renderListTabs();
+}
+
+function cancelRenameList() {
+  if (pendingListId && pendingListId === renamingListId) {
+    lists = lists.filter(l => l.id !== pendingListId);
+    activeListId = pendingListPrevActiveId || lists[0]?.id;
+    pendingListId = null;
+    pendingListPrevActiveId = null;
+    renamingListId = null;
+    loadActiveListState();
+    saveToStorage();
+    renderListTabs();
+    return;
+  }
+  renamingListId = null;
+  renderListTabs();
+}
+
+function moveTabOver(targetTab, clientX) {
+  if (!draggingTabEl || targetTab === draggingTabEl) return;
+  if (targetTab.parentNode !== draggingTabEl.parentNode) return;
+  const rect = targetTab.getBoundingClientRect();
+  const before = (clientX - rect.left) < rect.width / 2;
+  const parent = targetTab.parentNode;
+  if (before) {
+    if (targetTab.previousSibling !== draggingTabEl) parent.insertBefore(draggingTabEl, targetTab);
+  } else {
+    if (targetTab.nextSibling !== draggingTabEl) parent.insertBefore(draggingTabEl, targetTab.nextSibling);
+  }
+}
+
+function commitTabReorder() {
+  const container = document.getElementById('listTabs');
+  const tabs = Array.from(container.querySelectorAll('.list-tab'));
+  const idOrder = tabs.map(t => t.dataset.id);
+  const byId = new Map(lists.map(l => [l.id, l]));
+  const reordered = idOrder.map(id => byId.get(id)).filter(Boolean);
+  const changed = reordered.some((l, idx) => lists[idx]?.id !== l.id);
+  if (changed) {
+    lists = reordered;
+    saveToStorage();
+  }
+}
+
+function renderListTabs() {
+  const container = document.getElementById('listTabs');
+  if (!container) {
+    setTimeout(() => renderListTabs(), 100);
+    return;
+  }
+  container.innerHTML = '';
+
+  lists.forEach(list => {
+    const tab = document.createElement('div');
+    tab.className = 'list-tab' + (list.id === activeListId ? ' active' : '');
+    tab.dataset.id = list.id;
+
+    tab.addEventListener('dragover', e => {
+      if (!draggingTabEl || tab === draggingTabEl) return;
+      e.preventDefault();
+      moveTabOver(tab, e.clientX);
+    });
+    tab.addEventListener('drop', e => e.preventDefault());
+
+    const tabHandle = document.createElement('span');
+    tabHandle.className = 'list-tab-handle';
+    tabHandle.innerHTML = GRIP_ICON;
+    tabHandle.draggable = true;
+    tabHandle.addEventListener('dragstart', e => {
+      draggingTabEl = tab;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => tab.classList.add('dragging'), 0);
+    });
+    tabHandle.addEventListener('dragend', () => {
+      tab.classList.remove('dragging');
+      commitTabReorder();
+      draggingTabEl = null;
+    });
+    tab.appendChild(tabHandle);
+
+    tabHandle.addEventListener('touchstart', e => {
+      tabTouchStartX = e.touches[0].clientX;
+      draggingTabEl = tab;
+      tabTouchDragging = false;
+    }, { passive: true });
+    tabHandle.addEventListener('touchmove', e => {
+      if (!draggingTabEl) return;
+      const dx = e.touches[0].clientX - tabTouchStartX;
+      if (!tabTouchDragging && Math.abs(dx) > 6) {
+        tabTouchDragging = true;
+        draggingTabEl.classList.add('dragging');
+      }
+      if (tabTouchDragging) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetTab = el && el.closest('.list-tab');
+        if (targetTab && targetTab !== draggingTabEl) moveTabOver(targetTab, touch.clientX);
+      }
+    }, { passive: false });
+    tabHandle.addEventListener('touchend', () => {
+      if (tabTouchDragging) {
+        draggingTabEl && draggingTabEl.classList.remove('dragging');
+        commitTabReorder();
+      }
+      draggingTabEl = null;
+      tabTouchDragging = false;
+    });
+    tabHandle.addEventListener('touchcancel', () => {
+      draggingTabEl && draggingTabEl.classList.remove('dragging');
+      draggingTabEl = null;
+      tabTouchDragging = false;
+    });
+
+    if (renamingListId === list.id) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'list-tab-input';
+      input.value = list.name;
+      input.addEventListener('blur', () => commitRenameList(list.id, input.value));
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelRenameList(); }
+      });
+      input.addEventListener('click', e => e.stopPropagation());
+      tab.appendChild(input);
+    } else {
+      const nameBtn = document.createElement('button');
+      nameBtn.className = 'list-tab-btn';
+      nameBtn.textContent = list.name;
+      nameBtn.title = 'Switch to ' + list.name + ' (double-click to rename)';
+      nameBtn.addEventListener('click', () => switchList(list.id));
+      nameBtn.addEventListener('dblclick', e => { e.stopPropagation(); startRenameList(list.id); });
+      tab.appendChild(nameBtn);
+    }
+
+    container.appendChild(tab);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'list-tab-add';
+  addBtn.title = 'New list';
+  addBtn.textContent = '+';
+  addBtn.addEventListener('click', addList);
+  container.appendChild(addBtn);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'secondary danger list-tab-delete';
+  deleteBtn.title = 'Delete active list';
+  deleteBtn.innerHTML = TRASH_ICON;
+  deleteBtn.disabled = lists.length <= 1;
+  deleteBtn.addEventListener('click', () => deleteList(activeListId));
+  container.appendChild(deleteBtn);
+}
+
 function initTextareaHistory() {
   const val = document.getElementById('input').value;
   textareaHistory = [val];
@@ -63,6 +429,10 @@ function applyHistory() {
 }
 
 function undo() {
+  if (deletedListUndo) {
+    undoDeleteList();
+    return;
+  }
   if (currentView === 'text') {
     if (textareaHistoryIndex > 0) {
       textareaHistoryIndex--;
@@ -93,13 +463,12 @@ function redo() {
 }
 
 function updateUndoRedo() {
-  if (currentView === 'text') {
-    document.getElementById('undoBtn').disabled = textareaHistoryIndex <= 0;
-    document.getElementById('redoBtn').disabled = textareaHistoryIndex >= textareaHistory.length - 1;
-  } else {
-    document.getElementById('undoBtn').disabled = historyIndex <= 0;
-    document.getElementById('redoBtn').disabled = historyIndex >= history.length - 1;
-  }
+  const canUndo = !!deletedListUndo || (currentView === 'text' ? textareaHistoryIndex > 0 : historyIndex > 0);
+  const canRedo = currentView === 'text'
+    ? textareaHistoryIndex < textareaHistory.length - 1
+    : historyIndex < history.length - 1;
+  document.getElementById('undoBtn').disabled = !canUndo;
+  document.getElementById('redoBtn').disabled = !canRedo;
 }
 
 function parseLine(line) {
@@ -130,7 +499,6 @@ function switchView(view) {
     const ta = document.getElementById('input');
     ta.value = serializeList();
     initTextareaHistory();
-
   }
   currentView = view;
   updateUndoRedo();
@@ -179,25 +547,33 @@ let editingId = null;
 let pendingId = null;
 
 function saveToStorage() {
-  localStorage.setItem('checklist-items', JSON.stringify(items));
+  saveCurrentListItems();
+  localStorage.setItem('checklist-lists', JSON.stringify(lists));
+  localStorage.setItem('checklist-active', activeListId);
 }
 
 function loadFromStorage() {
   try {
-    const saved = localStorage.getItem('checklist-items');
-    if (saved) {
-      items = JSON.parse(saved);
-      history = [items.map(i => ({ ...i }))];
-      historyIndex = 0;
-      updateUndoRedo();
-      if (currentView === 'text') {
-        document.getElementById('input').value = serializeList();
-        initTextareaHistory();
-      } else {
-        render();
-      }
+    const savedLists = localStorage.getItem('checklist-lists');
+    const savedActive = localStorage.getItem('checklist-active');
+    if (savedLists) {
+      lists = JSON.parse(savedLists);
+    } else {
+      const oldItems = localStorage.getItem('checklist-items');
+      const id = generateId();
+      lists = [{ id, name: 'Today', items: oldItems ? JSON.parse(oldItems) : [] }];
     }
-  } catch {}
+    if (!lists.length) {
+      lists = [{ id: generateId(), name: 'Today', items: [] }];
+    }
+    activeListId = (savedActive && lists.find(l => l.id === savedActive)) ? savedActive : lists[0].id;
+    loadActiveListState();
+    renderListTabs();
+  } catch {
+    lists = [{ id: generateId(), name: 'Today', items: [] }];
+    activeListId = lists[0].id;
+    renderListTabs();
+  }
 }
 
 function render() {
@@ -704,23 +1080,33 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') closeQrCode();
 });
 
-applyCheckedVisibility(localStorage.getItem('checkedHidden') === '1');
-updateSortButton();
-(function initTheme() {
-  const saved = localStorage.getItem('theme');
-  applyTheme(saved || 'dark');
-})();
-applyView();
-loadFromStorage();
-initTextareaHistory();
-updateUndoRedo();
-updateClearBtn();
-(function initTextareaListeners() {
-  const ta = document.getElementById('input');
-  ta.addEventListener('blur', () => pushTextareaHistory(ta.value));
-  ta.addEventListener('keyup', onTextareaCursorMove);
-  ta.addEventListener('mouseup', onTextareaCursorMove);
-})();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./serviceworker.js');
+function init() {
+  applyCheckedVisibility(localStorage.getItem('checkedHidden') === '1');
+  updateSortButton();
+  (function initTheme() {
+    const saved = localStorage.getItem('theme');
+    applyTheme(saved || 'dark');
+  })();
+  applyView();
+  loadFromStorage();
+  initTextareaHistory();
+  updateUndoRedo();
+  updateClearBtn();
+  (function initTextareaListeners() {
+    const ta = document.getElementById('input');
+    if (ta) {
+      ta.addEventListener('blur', () => pushTextareaHistory(ta.value));
+      ta.addEventListener('keyup', onTextareaCursorMove);
+      ta.addEventListener('mouseup', onTextareaCursorMove);
+    }
+  })();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./serviceworker.js');
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }
