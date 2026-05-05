@@ -119,9 +119,7 @@ h1 {
 
 .dropdown {
   display: none;
-  position: absolute;
-  top: calc(100% + 0.4rem);
-  right: 0;
+  position: fixed;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
