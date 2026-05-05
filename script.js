@@ -252,16 +252,16 @@ function moveTabOver(targetTab, clientX) {
   }
 }
 
-function moveDropdownItemOver(targetItem, clientX) {
+function moveDropdownItemOver(targetItem, clientY) {
   if (!draggingTabEl || targetItem === draggingTabEl) return;
   if (targetItem.parentNode !== draggingTabEl.parentNode) return;
   const rect = targetItem.getBoundingClientRect();
-  const before = (clientX - rect.left) < rect.width / 2;
+  const above = (clientY - rect.top) < rect.height / 2;
   const parent = targetItem.parentNode;
-  if (before) {
-    parent.insertBefore(draggingTabEl, targetItem);
+  if (above) {
+    if (targetItem.previousSibling !== draggingTabEl) parent.insertBefore(draggingTabEl, targetItem);
   } else {
-    parent.insertBefore(draggingTabEl, targetItem.nextSibling);
+    if (targetItem.nextSibling !== draggingTabEl) parent.insertBefore(draggingTabEl, targetItem.nextSibling);
   }
 }
 
@@ -324,6 +324,7 @@ function renderListTabs() {
     const handle = document.createElement('span');
     handle.className = 'list-menu-handle';
     handle.innerHTML = GRIP_ICON;
+    handle.draggable = true;
     item.appendChild(handle);
 
     const nameSpan = document.createElement('span');
@@ -346,44 +347,40 @@ function renderListTabs() {
         switchList(list.id);
       }
     });
-    item.addEventListener('dragstart', (e) => {
+    item.addEventListener('dragover', (e) => {
+      if (!draggingTabEl || item === draggingTabEl) return;
+      e.preventDefault();
+      moveDropdownItemOver(item, e.clientY);
+    });
+    item.addEventListener('drop', (e) => e.preventDefault());
+
+    handle.addEventListener('dragstart', (e) => {
       draggingTabEl = item;
       e.dataTransfer.effectAllowed = 'move';
       item.classList.add('dragging');
     });
-    item.addEventListener('dragend', () => {
+    handle.addEventListener('dragend', () => {
       item.classList.remove('dragging');
       commitTabReorder();
       draggingTabEl = null;
     });
-    item.addEventListener('dragover', (e) => {
-      if (!draggingTabEl || item === draggingTabEl) return;
+    handle.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      moveDropdownItemOver(item, e.clientX);
-    });
-    item.addEventListener('drop', (e) => e.preventDefault());
-    item.addEventListener('touchstart', (e) => {
       tabTouchStartX = e.touches[0].clientX;
       draggingTabEl = item;
-      tabTouchDragging = false;
+      tabTouchDragging = true;
+      item.classList.add('dragging');
       document.body.classList.add('dragging-list');
-    }, { passive: true });
-    item.addEventListener('touchmove', (e) => {
-      if (!draggingTabEl) return;
-      const dx = e.touches[0].clientX - tabTouchStartX;
-      if (!tabTouchDragging && Math.abs(dx) > 6) {
-        tabTouchDragging = true;
-        item.classList.add('dragging');
-      }
-      if (tabTouchDragging) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const el = document.elementFromPoint(touch.clientX, touch.clientY);
-        const targetItem = el && el.closest('.list-menu-item');
-        if (targetItem && targetItem !== draggingTabEl) moveDropdownItemOver(targetItem, touch.clientX);
-      }
     }, { passive: false });
-    item.addEventListener('touchend', () => {
+    handle.addEventListener('touchmove', (e) => {
+      if (!draggingTabEl) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetItem = el && el.closest('.list-menu-item');
+      if (targetItem && targetItem !== draggingTabEl) moveDropdownItemOver(targetItem, touch.clientY);
+    }, { passive: false });
+    handle.addEventListener('touchend', () => {
       if (tabTouchDragging) {
         item.classList.remove('dragging');
         commitTabReorder();
@@ -392,7 +389,7 @@ function renderListTabs() {
       tabTouchDragging = false;
       document.body.classList.remove('dragging-list');
     });
-    item.addEventListener('touchcancel', () => {
+    handle.addEventListener('touchcancel', () => {
       item.classList.remove('dragging');
       draggingTabEl = null;
       tabTouchDragging = false;
@@ -452,6 +449,10 @@ function renderListTabs() {
   addBtn.addEventListener('click', addList);
   container.appendChild(addBtn);
 
+  const tabsScroller = document.createElement('div');
+  tabsScroller.className = 'list-tabs-scroller';
+  container.appendChild(tabsScroller);
+
   lists.forEach(list => {
     const tab = document.createElement('div');
     tab.className = 'list-tab' + (list.id === activeListId ? ' active' : '');
@@ -479,7 +480,7 @@ function renderListTabs() {
       tab.appendChild(nameBtn);
     }
 
-    container.appendChild(tab);
+    tabsScroller.appendChild(tab);
   });
 
 

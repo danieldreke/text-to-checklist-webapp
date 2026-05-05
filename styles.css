@@ -143,7 +143,7 @@ h1 {
 
 .list-tabs-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   width: 100%;
   margin-bottom: 0.5rem;
@@ -156,12 +156,20 @@ h1 {
 
 .list-tabs {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.list-tabs-scroller {
+  display: flex;
+  align-items: flex-start;
   gap: 0.35rem;
   overflow-x: auto;
-  width: 100%;
   padding-bottom: 0.5rem;
   scrollbar-width: thin;
+  flex: 1;
+  min-width: 0;
 }
 
 .list-tab {
@@ -193,6 +201,10 @@ h1 {
 .list-tab-handle svg {
   width: 0.8rem;
   height: 0.8rem;
+}
+
+.list-tab:hover:not(.active) {
+  background: var(--surface-hover);
 }
 
 .list-tab.active {
@@ -394,7 +406,7 @@ h1 {
   padding: 0 0.9rem;
   font-size: 0.85rem;
   border: none;
-  border-radius: 6px 6px 0 0;
+  border-radius: 0;
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -402,6 +414,14 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.view-tab:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.view-tab:last-child {
+  border-radius: 0 6px 6px 0;
 }
 
 .view-tab:hover:not(.active) {
