@@ -525,23 +525,31 @@ button.secondary.danger:hover:not(:disabled) {
   border-color: #e53935;
 }
 
-#addItemBtn {
-  margin-bottom: 0.5rem;
+.add-item-input {
   width: 100%;
-  justify-content: center;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  margin-top: 0.2rem;
+}
+
+.add-item-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.add-item-input::placeholder {
+  color: var(--text-dim);
 }
 
 .list {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-}
-
-.list:empty::after {
-  content: "—";
-  color: var(--empty);
-  font-size: 0.9rem;
-  padding: 0.4rem 0.75rem;
 }
 
 .item {

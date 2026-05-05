@@ -631,6 +631,12 @@ function applyView() {
   document.querySelectorAll('[data-checklist-only]').forEach(el => {
     el.style.display = currentView === 'checklist' ? '' : 'none';
   });
+  if (currentView === 'checklist') {
+    setTimeout(() => {
+      const input = document.getElementById('addItemInput');
+      if (input) input.focus();
+    }, 0);
+  }
 }
 
 function switchView(view) {
@@ -963,18 +969,25 @@ function cancelEdit(id) {
   render();
 }
 
-function addItem() {
+function addItemFromInput(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  if (items.some(i => i.text === trimmed)) {
+    showToast('Duplicate item not allowed', 'warning');
+    return false;
+  }
+
   const newItem = {
-    id: 'item-new-' + Date.now(),
-    text: '',
-    originalIndex: 0,
+    id: 'item-' + Date.now(),
+    text: trimmed,
+    originalIndex: items.length,
     checked: false,
   };
-  items.unshift(newItem);
-  reindex();
-  editingId = newItem.id;
-  pendingId = newItem.id;
+  items.push(newItem);
+  pushHistory();
   render();
+  return true;
 }
 
 function clearDone() {
@@ -1310,6 +1323,27 @@ function init() {
       ta.addEventListener('blur', () => pushTextareaHistory(ta.value));
       ta.addEventListener('keyup', onTextareaCursorMove);
       ta.addEventListener('mouseup', onTextareaCursorMove);
+    }
+  })();
+  (function initAddItemInput() {
+    const input = document.getElementById('addItemInput');
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (addItemFromInput(input.value)) {
+            input.value = '';
+            input.focus();
+          }
+        }
+      });
+      input.addEventListener('blur', () => {
+        if (input.value.trim()) {
+          if (addItemFromInput(input.value)) {
+            input.value = '';
+          }
+        }
+      });
     }
   })();
   if ('serviceWorker' in navigator) {
