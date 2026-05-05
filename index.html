@@ -32,7 +32,6 @@
         <button class="secondary" id="undoBtn" onclick="undo()" disabled>Undo</button>
         <button class="secondary" id="redoBtn" onclick="redo()" disabled>Redo</button>
         <button class="secondary theme-toggle" id="checkedToggle" onclick="toggleCheckedVisibility()">Hide checked</button>
-        <button class="secondary" data-checklist-only onclick="addItem()">Add item</button>
         <button class="secondary" onclick="createQrCode()">Show QR code</button>
         <div class="menu-container" id="menuContainer">
           <button class="secondary" id="menuBtn" onclick="toggleMenu()" title="More options">
@@ -58,6 +57,7 @@
         <textarea id="input" placeholder="Paste your text here — one item per line" oninput="onTextareaInput(event)"></textarea>
       </div>
       <div class="pane">
+        <button class="secondary" data-checklist-only onclick="addItem()" id="addItemBtn">+ Add item</button>
         <div id="list" class="list"></div>
       </div>
     </div>

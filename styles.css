@@ -507,6 +507,12 @@ button.secondary.danger:hover:not(:disabled) {
   border-color: #e53935;
 }
 
+#addItemBtn {
+  margin-bottom: 0.5rem;
+  width: 100%;
+  justify-content: center;
+}
+
 .list {
   display: flex;
   flex-direction: column;
