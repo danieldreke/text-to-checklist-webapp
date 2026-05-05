@@ -82,7 +82,7 @@ function addList() {
   const id = generateId();
   pendingListId = id;
   pendingListPrevActiveId = activeListId;
-  lists.push({ id, name: 'List ' + (lists.length + 1), items: [] });
+  lists.unshift({ id, name: 'List ' + (lists.length + 1), items: [] });
   activeListId = id;
   items = [];
   history = [[]];
@@ -330,6 +330,17 @@ function renderListTabs() {
     nameSpan.textContent = list.name;
     item.appendChild(nameSpan);
 
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'item-remove';
+    removeBtn.innerHTML = TRASH_ICON;
+    removeBtn.title = 'Delete list';
+    removeBtn.disabled = lists.length <= 1;
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteList(list.id);
+    });
+    item.appendChild(removeBtn);
+
     item.addEventListener('click', (e) => {
       if (!tabTouchDragging && !document.body.classList.contains('dragging-list')) {
         switchList(list.id);
@@ -471,13 +482,6 @@ function renderListTabs() {
     container.appendChild(tab);
   });
 
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'secondary danger list-tab-delete';
-  deleteBtn.title = 'Delete active list';
-  deleteBtn.innerHTML = TRASH_ICON;
-  deleteBtn.disabled = lists.length <= 1;
-  deleteBtn.addEventListener('click', () => deleteList(activeListId));
-  container.appendChild(deleteBtn);
 
   if (wasDropdownOpen) {
     const dropdown = container.querySelector('.list-menu-dropdown');
