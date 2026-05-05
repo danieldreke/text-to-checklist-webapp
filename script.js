@@ -14,6 +14,9 @@ let pendingListId = null;
 let pendingListPrevActiveId = null;
 let deletedListUndo = null;
 
+let listOrderHistory = [[]];
+let listOrderHistoryIndex = 0;
+
 let draggingTabEl = null;
 let tabTouchStartX = 0;
 let tabTouchDragging = false;
@@ -249,16 +252,46 @@ function moveTabOver(targetTab, clientX) {
   }
 }
 
-function commitTabReorder() {
-  const container = document.getElementById('listTabs');
-  const tabs = Array.from(container.querySelectorAll('.list-tab'));
-  const idOrder = tabs.map(t => t.dataset.id);
+function moveDropdownItemOver(targetItem, clientX) {
+  if (!draggingTabEl || targetItem === draggingTabEl) return;
+  if (targetItem.parentNode !== draggingTabEl.parentNode) return;
+  const rect = targetItem.getBoundingClientRect();
+  const before = (clientX - rect.left) < rect.width / 2;
+  const parent = targetItem.parentNode;
+  if (before) {
+    parent.insertBefore(draggingTabEl, targetItem);
+  } else {
+    parent.insertBefore(draggingTabEl, targetItem.nextSibling);
+  }
+}
+
+function snapshotListOrder() {
+  return lists.map(l => l.id);
+}
+
+function pushListOrderHistory() {
+  listOrderHistory = listOrderHistory.slice(0, listOrderHistoryIndex + 1);
+  listOrderHistory.push(snapshotListOrder());
+  listOrderHistoryIndex = listOrderHistory.length - 1;
+  updateUndoRedo();
+}
+
+function applyListOrder(order) {
   const byId = new Map(lists.map(l => [l.id, l]));
-  const reordered = idOrder.map(id => byId.get(id)).filter(Boolean);
-  const changed = reordered.some((l, idx) => lists[idx]?.id !== l.id);
+  lists = order.map(id => byId.get(id)).filter(Boolean);
+}
+
+function commitTabReorder() {
+  const dropdown = document.querySelector('.list-menu-dropdown');
+  if (!dropdown) return;
+  const items = Array.from(dropdown.querySelectorAll('.list-menu-item'));
+  const idOrder = items.map(i => i.dataset.id);
+  const changed = idOrder.some((id, idx) => lists[idx]?.id !== id);
   if (changed) {
-    lists = reordered;
+    applyListOrder(idOrder);
+    pushListOrderHistory();
     saveToStorage();
+    renderListTabs();
   }
 }
 
@@ -268,69 +301,150 @@ function renderListTabs() {
     setTimeout(() => renderListTabs(), 100);
     return;
   }
+  const wasDropdownOpen = document.querySelector('.list-menu-dropdown')?.classList.contains('open') ?? false;
   container.innerHTML = '';
 
+  const listMenuWrapper = document.createElement('div');
+  listMenuWrapper.className = 'list-menu-wrapper';
+
+  const listMenuBtn = document.createElement('button');
+  listMenuBtn.className = 'secondary list-menu-btn';
+  listMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>Lists';
+  listMenuBtn.title = 'All lists';
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'list-menu-dropdown';
+
   lists.forEach(list => {
-    const tab = document.createElement('div');
-    tab.className = 'list-tab' + (list.id === activeListId ? ' active' : '');
-    tab.dataset.id = list.id;
+    const item = document.createElement('button');
+    item.className = 'secondary list-menu-item' + (list.id === activeListId ? ' active' : '');
+    item.dataset.id = list.id;
+    item.draggable = true;
 
-    tab.addEventListener('dragover', e => {
-      if (!draggingTabEl || tab === draggingTabEl) return;
-      e.preventDefault();
-      moveTabOver(tab, e.clientX);
+    const handle = document.createElement('span');
+    handle.className = 'list-menu-handle';
+    handle.innerHTML = GRIP_ICON;
+    item.appendChild(handle);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = list.name;
+    item.appendChild(nameSpan);
+
+    item.addEventListener('click', (e) => {
+      if (!tabTouchDragging && !document.body.classList.contains('dragging-list')) {
+        switchList(list.id);
+      }
     });
-    tab.addEventListener('drop', e => e.preventDefault());
-
-    const tabHandle = document.createElement('span');
-    tabHandle.className = 'list-tab-handle';
-    tabHandle.innerHTML = GRIP_ICON;
-    tabHandle.draggable = true;
-    tabHandle.addEventListener('dragstart', e => {
-      draggingTabEl = tab;
+    item.addEventListener('dragstart', (e) => {
+      draggingTabEl = item;
       e.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => tab.classList.add('dragging'), 0);
+      item.classList.add('dragging');
     });
-    tabHandle.addEventListener('dragend', () => {
-      tab.classList.remove('dragging');
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
       commitTabReorder();
       draggingTabEl = null;
     });
-    tab.appendChild(tabHandle);
-
-    tabHandle.addEventListener('touchstart', e => {
+    item.addEventListener('dragover', (e) => {
+      if (!draggingTabEl || item === draggingTabEl) return;
+      e.preventDefault();
+      moveDropdownItemOver(item, e.clientX);
+    });
+    item.addEventListener('drop', (e) => e.preventDefault());
+    item.addEventListener('touchstart', (e) => {
       tabTouchStartX = e.touches[0].clientX;
-      draggingTabEl = tab;
+      draggingTabEl = item;
       tabTouchDragging = false;
+      document.body.classList.add('dragging-list');
     }, { passive: true });
-    tabHandle.addEventListener('touchmove', e => {
+    item.addEventListener('touchmove', (e) => {
       if (!draggingTabEl) return;
       const dx = e.touches[0].clientX - tabTouchStartX;
       if (!tabTouchDragging && Math.abs(dx) > 6) {
         tabTouchDragging = true;
-        draggingTabEl.classList.add('dragging');
+        item.classList.add('dragging');
       }
       if (tabTouchDragging) {
         e.preventDefault();
         const touch = e.touches[0];
         const el = document.elementFromPoint(touch.clientX, touch.clientY);
-        const targetTab = el && el.closest('.list-tab');
-        if (targetTab && targetTab !== draggingTabEl) moveTabOver(targetTab, touch.clientX);
+        const targetItem = el && el.closest('.list-menu-item');
+        if (targetItem && targetItem !== draggingTabEl) moveDropdownItemOver(targetItem, touch.clientX);
       }
     }, { passive: false });
-    tabHandle.addEventListener('touchend', () => {
+    item.addEventListener('touchend', () => {
       if (tabTouchDragging) {
-        draggingTabEl && draggingTabEl.classList.remove('dragging');
+        item.classList.remove('dragging');
         commitTabReorder();
       }
       draggingTabEl = null;
       tabTouchDragging = false;
+      document.body.classList.remove('dragging-list');
     });
-    tabHandle.addEventListener('touchcancel', () => {
-      draggingTabEl && draggingTabEl.classList.remove('dragging');
+    item.addEventListener('touchcancel', () => {
+      item.classList.remove('dragging');
       draggingTabEl = null;
       tabTouchDragging = false;
+      document.body.classList.remove('dragging-list');
     });
+    dropdown.appendChild(item);
+  });
+
+  function positionDropdown() {
+    const rect = listMenuBtn.getBoundingClientRect();
+    dropdown.style.top = (rect.bottom + 4) + 'px';
+    dropdown.style.left = rect.left + 'px';
+  }
+
+  listMenuBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (dropdown.classList.contains('open')) {
+      dropdown.classList.remove('open');
+      window.removeEventListener('scroll', positionDropdown);
+    } else {
+      dropdown.classList.add('open');
+      positionDropdown();
+      window.addEventListener('scroll', positionDropdown);
+    }
+  });
+
+  dropdown.addEventListener('dragover', (e) => {
+    if (!draggingTabEl) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const items = Array.from(dropdown.querySelectorAll('.list-menu-item'));
+    const lastItem = items[items.length - 1];
+    if (lastItem && e.clientY > lastItem.getBoundingClientRect().bottom) {
+      if (lastItem.nextSibling !== draggingTabEl) {
+        dropdown.insertBefore(draggingTabEl, null);
+      }
+    }
+  });
+
+  dropdown.addEventListener('drop', (e) => e.preventDefault());
+
+  document.addEventListener('click', e => {
+    if (!listMenuWrapper.contains(e.target) && !document.body.classList.contains('dragging-list')) {
+      dropdown.classList.remove('open');
+      window.removeEventListener('scroll', positionDropdown);
+    }
+  });
+
+  listMenuWrapper.appendChild(listMenuBtn);
+  listMenuWrapper.appendChild(dropdown);
+  container.appendChild(listMenuWrapper);
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'list-tab-add';
+  addBtn.title = 'New list';
+  addBtn.textContent = '+';
+  addBtn.addEventListener('click', addList);
+  container.appendChild(addBtn);
+
+  lists.forEach(list => {
+    const tab = document.createElement('div');
+    tab.className = 'list-tab' + (list.id === activeListId ? ' active' : '');
+    tab.dataset.id = list.id;
 
     if (renamingListId === list.id) {
       const input = document.createElement('input');
@@ -357,13 +471,6 @@ function renderListTabs() {
     container.appendChild(tab);
   });
 
-  const addBtn = document.createElement('button');
-  addBtn.className = 'list-tab-add';
-  addBtn.title = 'New list';
-  addBtn.textContent = '+';
-  addBtn.addEventListener('click', addList);
-  container.appendChild(addBtn);
-
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'secondary danger list-tab-delete';
   deleteBtn.title = 'Delete active list';
@@ -371,6 +478,19 @@ function renderListTabs() {
   deleteBtn.disabled = lists.length <= 1;
   deleteBtn.addEventListener('click', () => deleteList(activeListId));
   container.appendChild(deleteBtn);
+
+  if (wasDropdownOpen) {
+    const dropdown = container.querySelector('.list-menu-dropdown');
+    if (dropdown) {
+      dropdown.classList.add('open');
+      const listMenuBtn = container.querySelector('.list-menu-wrapper button');
+      if (listMenuBtn) {
+        const rect = listMenuBtn.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+      }
+    }
+  }
 }
 
 function initTextareaHistory() {
@@ -433,6 +553,14 @@ function undo() {
     undoDeleteList();
     return;
   }
+  if (listOrderHistoryIndex > 0) {
+    listOrderHistoryIndex--;
+    applyListOrder(listOrderHistory[listOrderHistoryIndex]);
+    saveToStorage();
+    renderListTabs();
+    updateUndoRedo();
+    return;
+  }
   if (currentView === 'text') {
     if (textareaHistoryIndex > 0) {
       textareaHistoryIndex--;
@@ -448,6 +576,14 @@ function undo() {
 }
 
 function redo() {
+  if (listOrderHistoryIndex < listOrderHistory.length - 1) {
+    listOrderHistoryIndex++;
+    applyListOrder(listOrderHistory[listOrderHistoryIndex]);
+    saveToStorage();
+    renderListTabs();
+    updateUndoRedo();
+    return;
+  }
   if (currentView === 'text') {
     if (textareaHistoryIndex < textareaHistory.length - 1) {
       textareaHistoryIndex++;
@@ -463,10 +599,10 @@ function redo() {
 }
 
 function updateUndoRedo() {
-  const canUndo = !!deletedListUndo || (currentView === 'text' ? textareaHistoryIndex > 0 : historyIndex > 0);
-  const canRedo = currentView === 'text'
+  const canUndo = !!deletedListUndo || listOrderHistoryIndex > 0 || (currentView === 'text' ? textareaHistoryIndex > 0 : historyIndex > 0);
+  const canRedo = listOrderHistoryIndex < listOrderHistory.length - 1 || (currentView === 'text'
     ? textareaHistoryIndex < textareaHistory.length - 1
-    : historyIndex < history.length - 1;
+    : historyIndex < history.length - 1);
   document.getElementById('undoBtn').disabled = !canUndo;
   document.getElementById('redoBtn').disabled = !canRedo;
 }
@@ -545,6 +681,7 @@ function toggle(id) {
 
 let editingId = null;
 let pendingId = null;
+let cursorPosition = null;
 
 function saveToStorage() {
   saveCurrentListItems();
@@ -567,11 +704,15 @@ function loadFromStorage() {
       lists = [{ id: generateId(), name: 'Today', items: [] }];
     }
     activeListId = (savedActive && lists.find(l => l.id === savedActive)) ? savedActive : lists[0].id;
+    listOrderHistory = [snapshotListOrder()];
+    listOrderHistoryIndex = 0;
     loadActiveListState();
     renderListTabs();
   } catch {
     lists = [{ id: generateId(), name: 'Today', items: [] }];
     activeListId = lists[0].id;
+    listOrderHistory = [snapshotListOrder()];
+    listOrderHistoryIndex = 0;
     renderListTabs();
   }
 }
@@ -586,7 +727,15 @@ function render() {
 
   if (editingId) {
     const input = list.querySelector('.edit-input');
-    if (input) { input.focus(); input.select(); }
+    if (input) {
+      input.focus();
+      if (cursorPosition !== null) {
+        input.setSelectionRange(cursorPosition, cursorPosition);
+        cursorPosition = null;
+      } else {
+        input.select();
+      }
+    }
   }
 }
 
@@ -633,15 +782,34 @@ function renderItem(item) {
     const label = document.createElement('label');
     label.htmlFor = item.id;
     label.textContent = item.text;
-    label.addEventListener('mousedown', (e) => {
-      if (editingId && editingId !== item.id) {
-        e.preventDefault();
-        switchEditTo(item.id);
-      }
-    });
     label.addEventListener('click', (e) => {
       e.preventDefault();
-      if (editingId !== item.id) {
+
+      const rect = label.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const canvas = measureTextWidth._canvas || (measureTextWidth._canvas = document.createElement('canvas'));
+      const ctx = canvas.getContext('2d');
+      const style = window.getComputedStyle(label);
+      ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+      let pos = 0;
+      for (let i = 0; i <= item.text.length; i++) {
+        const width = ctx.measureText(item.text.substring(0, i)).width;
+        if (width > clickX) break;
+        pos = i;
+      }
+
+      cursorPosition = pos;
+
+      if (editingId === item.id) {
+        // Already editing this item, just position cursor
+        const input = document.querySelector('.edit-input');
+        if (input) input.setSelectionRange(pos, pos);
+      } else if (editingId) {
+        // Editing a different item, switch to this one
+        switchEditTo(item.id);
+      } else {
+        // Not editing, enter edit mode
         editingId = item.id;
         render();
       }
