@@ -911,4 +911,16 @@ button.secondary.danger:hover:not(:disabled) {
     min-width: 0;
     max-height: 40vh;
   }
+
+  body {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .item {
+    padding: 0.3rem 0.4rem;
+  }
+
+  .list {
+    gap: 0.1rem;
+  }
 }
