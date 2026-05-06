@@ -162,6 +162,14 @@ function showConfirm(message, onOk) {
   document.getElementById('confirmOkBtn').onclick = () => { modal.style.display = 'none'; onOk(); };
   document.getElementById('confirmCancelBtn').onclick = () => { modal.style.display = 'none'; };
   modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+
+  const handleEscapeKey = (e) => {
+    if (e.key === 'Escape' && modal.style.display !== 'none') {
+      modal.style.display = 'none';
+      document.removeEventListener('keydown', handleEscapeKey);
+    }
+  };
+  document.addEventListener('keydown', handleEscapeKey);
 }
 
 function showUndoToast(message) {
@@ -197,16 +205,10 @@ function measureTextWidth(text, el) {
 
 function startRenameList(id) {
   renamingListId = id;
-  const existingBtn = document.querySelector(`.list-tab[data-id="${id}"] .list-tab-btn`);
-  const minWidth = existingBtn ? existingBtn.offsetWidth : 60;
   renderListTabs();
-  const input = document.querySelector('.list-tab-input');
+
+  const input = document.querySelector('.list-tab-input') || document.querySelector('.list-menu-input');
   if (input) {
-    input.style.width = minWidth + 'px';
-    input.addEventListener('input', () => {
-      const textWidth = measureTextWidth(input.value, input);
-      input.style.width = Math.max(minWidth, textWidth + 16) + 'px';
-    });
     input.focus();
     input.select();
   }
@@ -327,9 +329,40 @@ function renderListTabs() {
     handle.draggable = true;
     item.appendChild(handle);
 
+    const editBtn = document.createElement('button');
+    editBtn.className = 'list-menu-edit-btn';
+    editBtn.innerHTML = PENCIL_ICON;
+    editBtn.title = 'Rename list';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startRenameList(list.id);
+    });
+    item.appendChild(editBtn);
+
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'list-menu-name-wrap';
+
     const nameSpan = document.createElement('span');
+    nameSpan.className = 'list-menu-name' + (renamingListId === list.id ? ' renaming' : '');
     nameSpan.textContent = list.name;
-    item.appendChild(nameSpan);
+    nameWrap.appendChild(nameSpan);
+
+    if (renamingListId === list.id) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'list-menu-input';
+      input.value = list.name;
+      input.addEventListener('input', () => { nameSpan.textContent = input.value || ' '; });
+      input.addEventListener('blur', () => commitRenameList(list.id, input.value));
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelRenameList(); }
+      });
+      input.addEventListener('click', e => e.stopPropagation());
+      nameWrap.appendChild(input);
+    }
+
+    item.appendChild(nameWrap);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'item-remove';
@@ -458,7 +491,7 @@ function renderListTabs() {
     tab.className = 'list-tab' + (list.id === activeListId ? ' active' : '');
     tab.dataset.id = list.id;
 
-    if (renamingListId === list.id) {
+    if (renamingListId === list.id && !document.querySelector('.list-menu-input')) {
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'list-tab-input';
@@ -474,9 +507,8 @@ function renderListTabs() {
       const nameBtn = document.createElement('button');
       nameBtn.className = 'list-tab-btn';
       nameBtn.textContent = list.name;
-      nameBtn.title = 'Switch to ' + list.name + ' (double-click to rename)';
+      nameBtn.title = 'Switch to ' + list.name;
       nameBtn.addEventListener('click', () => switchList(list.id));
-      nameBtn.addEventListener('dblclick', e => { e.stopPropagation(); startRenameList(list.id); });
       tab.appendChild(nameBtn);
     }
 
@@ -1137,6 +1169,7 @@ const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.77 19.77 0 0 1 4.22-5.38"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.77 19.77 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
 const GRIP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
+const PENCIL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg>';
 const WARN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 const ARROW_UP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
