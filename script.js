@@ -631,12 +631,6 @@ function applyView() {
   document.querySelectorAll('[data-checklist-only]').forEach(el => {
     el.style.display = currentView === 'checklist' ? '' : 'none';
   });
-  if (currentView === 'checklist') {
-    setTimeout(() => {
-      const input = document.getElementById('addItemInput');
-      if (input) input.focus();
-    }, 0);
-  }
 }
 
 function switchView(view) {
