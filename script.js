@@ -21,6 +21,9 @@ let draggingTabEl = null;
 let tabTouchStartX = 0;
 let tabTouchDragging = false;
 
+let addItemInsertIndex = null; // null = after all items, number = before item at that index
+let addItemAbove = localStorage.getItem('addItemAbove') !== '0';
+
 function generateId() {
   return 'list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
 }
@@ -210,7 +213,7 @@ function startRenameList(id) {
   const input = document.querySelector('.list-tab-input') || document.querySelector('.list-menu-input');
   if (input) {
     input.focus();
-    input.select();
+    input.setSelectionRange(input.value.length, input.value.length);
   }
 }
 
@@ -757,10 +760,15 @@ function loadFromStorage() {
 function render() {
   saveToStorage();
   const list = document.getElementById('list');
-  list.innerHTML = '';
+  const addRow = list.querySelector('.add-item-row');
+
+  Array.from(list.querySelectorAll('.item')).forEach(el => el.remove());
 
   const ordered = [...items].sort((a, b) => a.originalIndex - b.originalIndex);
-  ordered.forEach(i => list.appendChild(renderItem(i)));
+  const splitAt = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, ordered.length) : ordered.length;
+
+  ordered.slice(0, splitAt).forEach(i => list.insertBefore(renderItem(i), addRow));
+  ordered.slice(splitAt).forEach(i => list.appendChild(renderItem(i)));
 
   if (editingId) {
     const input = list.querySelector('.edit-input');
@@ -804,7 +812,45 @@ function renderItem(item) {
   cb.addEventListener('change', () => toggle(item.id));
   div.appendChild(cb);
 
+  const wrap = document.createElement('div');
+  wrap.className = 'item-label-wrap';
+
+  const label = document.createElement('label');
+  label.htmlFor = item.id;
+  label.textContent = item.text;
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+
+    const rect = label.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const canvas = measureTextWidth._canvas || (measureTextWidth._canvas = document.createElement('canvas'));
+    const ctx = canvas.getContext('2d');
+    const style = window.getComputedStyle(label);
+    ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+    let pos = 0;
+    for (let i = 0; i <= item.text.length; i++) {
+      const width = ctx.measureText(item.text.substring(0, i)).width;
+      if (width > clickX) break;
+      pos = i;
+    }
+
+    cursorPosition = pos;
+
+    if (editingId === item.id) {
+      const input = document.querySelector('.edit-input');
+      if (input) input.setSelectionRange(pos, pos);
+    } else if (editingId) {
+      switchEditTo(item.id);
+    } else {
+      editingId = item.id;
+      render();
+    }
+  });
+  wrap.appendChild(label);
+
   if (editingId === item.id) {
+    label.classList.add('editing');
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'edit-input';
@@ -814,45 +860,10 @@ function renderItem(item) {
       if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
       else if (e.key === 'Escape') { cancelEdit(item.id); }
     });
-    div.appendChild(input);
-  } else {
-    const label = document.createElement('label');
-    label.htmlFor = item.id;
-    label.textContent = item.text;
-    label.addEventListener('click', (e) => {
-      e.preventDefault();
-
-      const rect = label.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const canvas = measureTextWidth._canvas || (measureTextWidth._canvas = document.createElement('canvas'));
-      const ctx = canvas.getContext('2d');
-      const style = window.getComputedStyle(label);
-      ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-
-      let pos = 0;
-      for (let i = 0; i <= item.text.length; i++) {
-        const width = ctx.measureText(item.text.substring(0, i)).width;
-        if (width > clickX) break;
-        pos = i;
-      }
-
-      cursorPosition = pos;
-
-      if (editingId === item.id) {
-        // Already editing this item, just position cursor
-        const input = document.querySelector('.edit-input');
-        if (input) input.setSelectionRange(pos, pos);
-      } else if (editingId) {
-        // Editing a different item, switch to this one
-        switchEditTo(item.id);
-      } else {
-        // Not editing, enter edit mode
-        editingId = item.id;
-        render();
-      }
-    });
-    div.appendChild(label);
+    wrap.appendChild(input);
   }
+
+  div.appendChild(wrap);
 
   const removeBtn = document.createElement('button');
   removeBtn.className = 'item-remove';
@@ -899,9 +910,18 @@ function onDragEnd(div) {
   div.classList.remove('dragging');
   if (draggingDiv) {
     const list = document.getElementById('list');
+
     const order = Array.from(list.children).map(el => el.dataset.id);
     const byId = new Map(items.map(i => [i.id, i]));
     const reordered = order.map(id => byId.get(id)).filter(Boolean);
+
+    const addRow = list.querySelector('.add-item-row');
+    if (addRow) {
+      const siblings = Array.from(list.children);
+      const countBefore = siblings.slice(0, siblings.indexOf(addRow)).filter(el => el.classList.contains('item')).length;
+      addItemInsertIndex = countBefore < reordered.length ? countBefore : null;
+    }
+
     const changed = reordered.some((i, idx) => items[idx]?.id !== i.id);
     items = reordered;
     reindex();
@@ -940,7 +960,7 @@ function onTouchMove(e) {
   const touch = e.touches[0];
   const target = document.elementFromPoint(touch.clientX, touch.clientY);
   if (!target) return;
-  const targetItem = target.closest('.item');
+  const targetItem = target.closest('.item, .add-item-row');
   if (!targetItem || targetItem === draggingDiv) return;
   if (targetItem.parentNode !== draggingDiv.parentNode) return;
   moveDraggingOver(targetItem, touch.clientY);
@@ -1004,16 +1024,35 @@ function addItemFromInput(text) {
     return false;
   }
 
-  const newItem = {
-    id: 'item-' + Date.now(),
-    text: trimmed,
-    originalIndex: items.length,
-    checked: false,
-  };
-  items.push(newItem);
+  const newItem = { id: 'item-' + Date.now(), text: trimmed, originalIndex: 0, checked: false };
+  const currentIdx = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, items.length) : items.length;
+  items.splice(currentIdx, 0, newItem);
+  addItemInsertIndex = addItemAbove ? currentIdx + 1 : currentIdx;
+  reindex();
   pushHistory();
   render();
   return true;
+}
+
+function submitAddItem() {
+  const input = document.getElementById('addItemInput');
+  if (addItemFromInput(input.value)) {
+    input.value = '';
+    input.focus();
+  }
+}
+
+function updateAddDirectionBtn() {
+  const btn = document.getElementById('addDirectionBtn');
+  if (!btn) return;
+  btn.innerHTML = addItemAbove ? ADD_DIR_UP_ICON : ADD_DIR_DOWN_ICON;
+  btn.title = addItemAbove ? 'Adding above' : 'Adding below';
+}
+
+function toggleAddDirection() {
+  addItemAbove = !addItemAbove;
+  localStorage.setItem('addItemAbove', addItemAbove ? '1' : '0');
+  updateAddDirectionBtn();
 }
 
 function clearDone() {
@@ -1107,6 +1146,10 @@ function clearList() {
 
 function removeItem(id) {
   const item = items.find(i => i.id === id);
+  if (item && addItemInsertIndex !== null) {
+    const rank = [...items].sort((a, b) => a.originalIndex - b.originalIndex).findIndex(i => i.id === id);
+    if (rank < addItemInsertIndex) addItemInsertIndex--;
+  }
   items = items.filter(i => i.id !== id);
   pushHistory();
   render();
@@ -1172,8 +1215,11 @@ const GRIP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" c
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg>';
 const WARN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+const PLUS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 const ARROW_UP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
 const ARROW_DOWN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
+const ADD_DIR_UP_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,5 21,18 3,18" fill="transparent"/></svg>';
+const ADD_DIR_DOWN_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,19 21,6 3,6" fill="transparent"/></svg>';
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -1335,6 +1381,9 @@ document.addEventListener('keydown', (e) => {
 function init() {
   applyCheckedVisibility(localStorage.getItem('checkedHidden') === '1');
   updateSortButton();
+  updateAddDirectionBtn();
+  const addItemBtn = document.getElementById('addItemBtn');
+  if (addItemBtn) addItemBtn.innerHTML = PLUS_ICON;
   (function initTheme() {
     const saved = localStorage.getItem('theme');
     applyTheme(saved || 'dark');
@@ -1371,6 +1420,20 @@ function init() {
           }
         }
       });
+
+      const addRow = input.closest('.add-item-row');
+      const grip = addRow?.querySelector('.add-item-grip');
+      if (grip && addRow) {
+        grip.draggable = true;
+        grip.addEventListener('dragstart', (e) => onDragStart(e, 'add-item-row', addRow));
+        grip.addEventListener('dragend', () => onDragEnd(addRow));
+        grip.addEventListener('touchstart', (e) => onTouchStart(e, addRow), { passive: false });
+        grip.addEventListener('touchmove', (e) => onTouchMove(e), { passive: false });
+        grip.addEventListener('touchend', () => onTouchEnd(addRow));
+        grip.addEventListener('touchcancel', () => onTouchEnd(addRow));
+        addRow.addEventListener('dragover', (e) => onDragOver(e, addRow));
+        addRow.addEventListener('drop', (e) => e.preventDefault());
+      }
     }
   })();
   if ('serviceWorker' in navigator) {
