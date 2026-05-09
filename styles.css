@@ -321,10 +321,27 @@ h1 {
   cursor: pointer;
   font-size: 0.85rem;
   transition: background-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .list-menu-item:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.list-menu-item.active {
+  font-weight: 600;
+  border: 1.7px solid var(--accent);
+}
+
+.list-menu-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
 }
 
 .list-menu-item:active {
