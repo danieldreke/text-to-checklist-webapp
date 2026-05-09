@@ -62,7 +62,7 @@
             <span class="drag-handle add-item-grip"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>
             <button id="addDirectionBtn" class="add-direction-btn" onclick="toggleAddDirection()"></button>
             <input type="text" id="addItemInput" class="add-item-input" placeholder="Add a new item..." />
-            <button id="addItemBtn" class="add-item-btn" onclick="submitAddItem()" title="Add item"></button>
+            <button id="addItemBtn" class="add-item-btn" onmousedown="event.preventDefault()" onclick="submitAddItem()" title="Add item"></button>
           </div>
         </div>
       </div>
