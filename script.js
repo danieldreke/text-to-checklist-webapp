@@ -34,7 +34,10 @@ function getActiveList() {
 
 function saveCurrentListItems() {
   const list = getActiveList();
-  if (list) list.items = items.map(i => ({ ...i }));
+  if (list) {
+    list.items = items.map(i => ({ ...i }));
+    list.addItemInsertIndex = addItemInsertIndex;
+  }
 }
 
 function saveCurrentState() {
@@ -56,6 +59,7 @@ function saveCurrentState() {
 function loadActiveListState() {
   const list = getActiveList();
   items = list ? list.items.map(i => ({ ...i })) : [];
+  addItemInsertIndex = list?.addItemInsertIndex ?? null;
   history = [items.map(i => ({ ...i }))];
   historyIndex = 0;
   editingId = null;
