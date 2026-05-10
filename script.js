@@ -34,10 +34,7 @@ function getActiveList() {
 
 function saveCurrentListItems() {
   const list = getActiveList();
-  if (list) {
-    list.items = items.map(i => ({ ...i }));
-    list.addItemInsertIndex = addItemInsertIndex;
-  }
+  if (list) list.items = items.map(i => ({ ...i }));
 }
 
 function saveCurrentState() {
@@ -59,7 +56,6 @@ function saveCurrentState() {
 function loadActiveListState() {
   const list = getActiveList();
   items = list ? list.items.map(i => ({ ...i })) : [];
-  addItemInsertIndex = list?.addItemInsertIndex ?? null;
   history = [items.map(i => ({ ...i }))];
   historyIndex = 0;
   editingId = null;
@@ -731,6 +727,11 @@ function saveToStorage() {
   saveCurrentListItems();
   localStorage.setItem('checklist-lists', JSON.stringify(lists));
   localStorage.setItem('checklist-active', activeListId);
+  if (addItemInsertIndex !== null) {
+    localStorage.setItem('checklist-add-row', addItemInsertIndex);
+  } else {
+    localStorage.removeItem('checklist-add-row');
+  }
 }
 
 function loadFromStorage() {
@@ -748,6 +749,8 @@ function loadFromStorage() {
       lists = [{ id: generateId(), name: 'Today', items: [] }];
     }
     activeListId = (savedActive && lists.find(l => l.id === savedActive)) ? savedActive : lists[0].id;
+    const savedAddRow = localStorage.getItem('checklist-add-row');
+    addItemInsertIndex = savedAddRow !== null ? Number(savedAddRow) : null;
     listOrderHistory = [snapshotListOrder()];
     listOrderHistoryIndex = 0;
     loadActiveListState();
