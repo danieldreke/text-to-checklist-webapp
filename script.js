@@ -350,7 +350,7 @@ function renderListTabs() {
     nameSpan.textContent = list.name;
     nameWrap.appendChild(nameSpan);
 
-    if (renamingListId === list.id) {
+    if (renamingListId === list.id && pendingListId !== list.id) {
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'list-menu-input';
@@ -491,7 +491,7 @@ function renderListTabs() {
 
   lists.forEach(list => {
     const tab = document.createElement('div');
-    tab.className = 'list-tab' + (list.id === activeListId ? ' active' : '');
+    tab.className = 'list-tab' + (list.id === activeListId && renamingListId !== list.id ? ' active' : '');
     tab.dataset.id = list.id;
 
     if (renamingListId === list.id && !document.querySelector('.list-menu-input')) {
@@ -499,6 +499,13 @@ function renderListTabs() {
       input.type = 'text';
       input.className = 'list-tab-input';
       input.value = list.name;
+      let minInputWidth = 0;
+      const resizeTabInput = () => {
+        if (!minInputWidth) minInputWidth = measureTextWidth(list.name, input) + 14;
+        input.style.width = Math.max(minInputWidth, measureTextWidth(input.value, input) + 14) + 'px';
+      };
+      input.addEventListener('focus', resizeTabInput);
+      input.addEventListener('input', resizeTabInput);
       input.addEventListener('blur', () => commitRenameList(list.id, input.value));
       input.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
