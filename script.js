@@ -926,6 +926,7 @@ function onDragEnd(div) {
     items = reordered;
     reindex();
     if (changed) pushHistory();
+    saveToStorage();
   }
   draggingDiv = null;
 }
