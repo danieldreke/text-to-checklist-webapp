@@ -22,6 +22,7 @@ let tabTouchStartX = 0;
 let tabTouchDragging = false;
 
 let addItemInsertIndex = null; // null = after all items, number = before item at that index
+let sortedItemsCache = null;
 let addItemAbove = localStorage.getItem('addItemAbove') !== '0';
 
 function generateId() {
@@ -56,6 +57,7 @@ function saveCurrentState() {
 function loadActiveListState() {
   const list = getActiveList();
   items = list ? list.items.map(i => ({ ...i })) : [];
+  sortedItemsCache = null;
   history = [items.map(i => ({ ...i }))];
   historyIndex = 0;
   editingId = null;
@@ -300,26 +302,10 @@ function commitTabReorder() {
   }
 }
 
-function renderListTabs() {
-  const container = document.getElementById('listTabs');
-  if (!container) {
-    setTimeout(() => renderListTabs(), 100);
-    return;
-  }
-  const wasDropdownOpen = document.querySelector('.list-menu-dropdown')?.classList.contains('open') ?? false;
-  container.innerHTML = '';
+let dropdownNeedsRebuild = true;
 
-  const listMenuWrapper = document.createElement('div');
-  listMenuWrapper.className = 'list-menu-wrapper';
-
-  const listMenuBtn = document.createElement('button');
-  listMenuBtn.className = 'secondary list-menu-btn';
-  listMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>Lists';
-  listMenuBtn.title = 'All lists';
-
-  const dropdown = document.createElement('div');
-  dropdown.className = 'list-menu-dropdown';
-
+function buildDropdownContent(dropdown) {
+  dropdown.innerHTML = '';
   lists.forEach(list => {
     const item = document.createElement('button');
     item.className = 'secondary list-menu-item' + (list.id === activeListId ? ' active' : '');
@@ -355,7 +341,7 @@ function renderListTabs() {
       input.type = 'text';
       input.className = 'list-menu-input';
       input.value = list.name;
-      input.addEventListener('input', () => { nameSpan.textContent = input.value || ' '; });
+      input.addEventListener('input', () => { nameSpan.textContent = input.value || ' '; });
       input.addEventListener('blur', () => commitRenameList(list.id, input.value));
       input.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
@@ -433,6 +419,29 @@ function renderListTabs() {
     });
     dropdown.appendChild(item);
   });
+  dropdownNeedsRebuild = false;
+}
+
+function renderListTabs() {
+  const container = document.getElementById('listTabs');
+  if (!container) {
+    setTimeout(() => renderListTabs(), 100);
+    return;
+  }
+  const wasDropdownOpen = document.querySelector('.list-menu-dropdown')?.classList.contains('open') ?? false;
+  container.innerHTML = '';
+  dropdownNeedsRebuild = true;
+
+  const listMenuWrapper = document.createElement('div');
+  listMenuWrapper.className = 'list-menu-wrapper';
+
+  const listMenuBtn = document.createElement('button');
+  listMenuBtn.className = 'secondary list-menu-btn';
+  listMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>Lists';
+  listMenuBtn.title = 'All lists';
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'list-menu-dropdown';
 
   function positionDropdown() {
     const rect = listMenuBtn.getBoundingClientRect();
@@ -446,6 +455,7 @@ function renderListTabs() {
       dropdown.classList.remove('open');
       window.removeEventListener('scroll', positionDropdown);
     } else {
+      if (dropdownNeedsRebuild) buildDropdownContent(dropdown);
       dropdown.classList.add('open');
       positionDropdown();
       window.addEventListener('scroll', positionDropdown);
@@ -527,16 +537,10 @@ function renderListTabs() {
 
 
   if (wasDropdownOpen) {
-    const dropdown = container.querySelector('.list-menu-dropdown');
-    if (dropdown) {
-      dropdown.classList.add('open');
-      const listMenuBtn = container.querySelector('.list-menu-wrapper button');
-      if (listMenuBtn) {
-        const rect = listMenuBtn.getBoundingClientRect();
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.left = rect.left + 'px';
-      }
-    }
+    buildDropdownContent(dropdown);
+    dropdown.classList.add('open');
+    positionDropdown();
+    window.addEventListener('scroll', positionDropdown);
   }
 }
 
@@ -591,6 +595,8 @@ function pushHistory() {
 
 function applyHistory() {
   items = history[historyIndex].map(i => ({ ...i }));
+  sortedItemsCache = null;
+  saveToStorage();
   render();
   updateUndoRedo();
 }
@@ -708,6 +714,8 @@ function parseTextToList() {
     originalIndex: idx,
     checked: parsed.checked,
   }));
+  sortedItemsCache = null;
+  saveToStorage();
   render();
   if (duplicates > 0) {
     showToast(`${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped`, 'warning');
@@ -723,6 +731,7 @@ function toggle(id) {
   if (!item) return;
   item.checked = !item.checked;
   pushHistory();
+  saveToStorage();
   render();
 }
 
@@ -760,8 +769,21 @@ function loadFromStorage() {
     addItemInsertIndex = savedAddRow !== null ? Number(savedAddRow) : null;
     listOrderHistory = [snapshotListOrder()];
     listOrderHistoryIndex = 0;
-    loadActiveListState();
+    const activeList = getActiveList();
+    items = activeList ? activeList.items.map(i => ({ ...i })) : [];
+    history = [items.map(i => ({ ...i }))];
+    historyIndex = 0;
+    editingId = null;
+    pendingId = null;
     renderListTabs();
+    if (currentView === 'text') {
+      const ta = document.getElementById('input');
+      ta.value = serializeList();
+      initTextareaHistory();
+    } else {
+      requestAnimationFrame(() => render());
+    }
+    updateUndoRedo();
   } catch {
     lists = [{ id: generateId(), name: 'Today', items: [] }];
     activeListId = lists[0].id;
@@ -772,13 +794,13 @@ function loadFromStorage() {
 }
 
 function render() {
-  saveToStorage();
   const list = document.getElementById('list');
   const addRow = list.querySelector('.add-item-row');
 
   Array.from(list.querySelectorAll('.item')).forEach(el => el.remove());
 
-  const ordered = [...items].sort((a, b) => a.originalIndex - b.originalIndex);
+  if (!sortedItemsCache) sortedItemsCache = [...items].sort((a, b) => a.originalIndex - b.originalIndex);
+  const ordered = sortedItemsCache;
   const splitAt = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, ordered.length) : ordered.length;
 
   ordered.slice(0, splitAt).forEach(i => list.insertBefore(renderItem(i), addRow));
@@ -908,6 +930,7 @@ function switchEditTo(newId) {
     }
   }
   editingId = newId;
+  saveToStorage();
   render();
 }
 
@@ -988,6 +1011,7 @@ function onTouchEnd(div) {
 
 function reindex() {
   items.forEach((i, idx) => { i.originalIndex = idx; });
+  sortedItemsCache = null;
 }
 
 function commitEdit(id, value) {
@@ -1004,6 +1028,7 @@ function commitEdit(id, value) {
   if (!trimmed) {
     items = items.filter(i => i.id !== id);
     if (!wasPending) pushHistory();
+    saveToStorage();
     render();
     return;
   }
@@ -1011,6 +1036,7 @@ function commitEdit(id, value) {
   if (items.some(i => i.id !== id && i.text === trimmed)) {
     if (wasPending) {
       items = items.filter(i => i.id !== id);
+      saveToStorage();
     }
     showToast('Duplicate item not allowed', 'warning');
     render();
@@ -1018,6 +1044,7 @@ function commitEdit(id, value) {
   }
   item.text = trimmed;
   pushHistory();
+  saveToStorage();
   render();
 }
 
@@ -1025,6 +1052,7 @@ function cancelEdit(id) {
   if (pendingId === id) {
     items = items.filter(i => i.id !== id);
     pendingId = null;
+    saveToStorage();
   }
   editingId = null;
   render();
@@ -1045,6 +1073,7 @@ function addItemFromInput(text) {
   addItemInsertIndex = addItemAbove ? currentIdx + 1 : currentIdx;
   reindex();
   pushHistory();
+  saveToStorage();
   render();
   return true;
 }
@@ -1087,6 +1116,7 @@ function clearDone() {
   items = items.filter(i => !i.checked);
   reindex();
   pushHistory();
+  saveToStorage();
   render();
   showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
 }
@@ -1155,6 +1185,7 @@ function clearList() {
   if (items.length === 0) return;
   items = [];
   pushHistory();
+  saveToStorage();
   render();
   showToast('List cleared', 'warning', TRASH_ICON);
 }
@@ -1167,6 +1198,7 @@ function removeItem(id) {
   }
   items = items.filter(i => i.id !== id);
   pushHistory();
+  saveToStorage();
   render();
   if (item) showToast('Item removed: ' + item.text, 'warning', TRASH_ICON);
 }
@@ -1275,6 +1307,7 @@ function toggleSort() {
       : b.text.localeCompare(a.text));
     reindex();
     pushHistory();
+    saveToStorage();
     render();
   }
   sortDirection = asc ? 'desc' : 'asc';
@@ -1295,6 +1328,13 @@ function toggleCheckedVisibility() {
 }
 
 function createQrCode() {
+  if (typeof QRCode === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'qrcode.min.keeex.js?t=1';
+    s.onload = createQrCode;
+    document.head.appendChild(s);
+    return;
+  }
   const content = serializeList();
   if (!content) return;
   const container = document.getElementById('qrCode');
