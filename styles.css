@@ -33,11 +33,14 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { height: 100%; }
+
 body {
   font-family: system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   padding: 2rem 1rem;
   display: flex;
   flex-direction: column;
@@ -535,6 +538,8 @@ h1 {
 .pane {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 textarea {
@@ -706,6 +711,9 @@ button.secondary.danger:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .item {
@@ -828,6 +836,13 @@ button.secondary.danger:hover:not(:disabled) {
 
 .list.hide-checked .item.checked {
   display: none;
+}
+
+.list-footer {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 0.35rem 0.1rem;
+  flex-shrink: 0;
 }
 
 .qr-modal {

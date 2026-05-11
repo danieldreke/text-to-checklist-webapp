@@ -759,6 +759,7 @@ function toggle(id) {
     const cb = el.querySelector('input[type="checkbox"]');
     if (cb) cb.checked = item.checked;
   }
+  updateFooter();
 }
 
 let editingId = null;
@@ -866,6 +867,15 @@ function loadFromStorage() {
   }
 }
 
+function updateFooter() {
+  const footer = document.getElementById('listFooter');
+  if (!footer) return;
+  const total = items.length;
+  const checked = items.filter(i => i.checked).length;
+  const remaining = total - checked;
+  footer.textContent = total === 0 ? '' : `${checked} of ${total} checked, ${remaining} remaining`;
+}
+
 function render() {
   const list = document.getElementById('list');
   const addRow = list.querySelector('.add-item-row');
@@ -874,6 +884,7 @@ function render() {
   const splitAt = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, ordered.length) : ordered.length;
   ordered.slice(0, splitAt).forEach(i => list.insertBefore(renderItem(i), addRow));
   ordered.slice(splitAt).forEach(i => list.appendChild(renderItem(i)));
+  updateFooter();
 }
 
 function renderItem(item) {
@@ -1144,6 +1155,7 @@ function addItemFromInput(text) {
   } else {
     addRow.insertAdjacentElement('afterend', newEl);
   }
+  updateFooter();
   return true;
 }
 
@@ -1187,6 +1199,7 @@ function clearDone() {
   pushHistory();
   saveToStorage();
   document.querySelectorAll('#list .item.checked').forEach(el => el.remove());
+  updateFooter();
   showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
 }
 
@@ -1272,6 +1285,7 @@ function removeItem(id) {
   pushHistory();
   saveToStorage();
   getItemEl(id)?.remove();
+  updateFooter();
   if (item) showToast('Item removed: ' + item.text, 'warning', TRASH_ICON);
 }
 
