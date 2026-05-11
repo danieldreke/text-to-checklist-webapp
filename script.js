@@ -1529,8 +1529,12 @@ function createQrCode() {
   }
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${vb} ${vb}`);
-  svg.setAttribute('width', size);
-  svg.setAttribute('height', size);
+  if (portrait) {
+    svg.setAttribute('width', '100%');
+  } else {
+    svg.setAttribute('width', size);
+    svg.setAttribute('height', size);
+  }
   svg.setAttribute('shape-rendering', 'crispEdges');
   svg.setAttribute('stroke', 'none');
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
