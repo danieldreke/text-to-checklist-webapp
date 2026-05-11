@@ -24,6 +24,10 @@ let tabTouchDragging = false;
 let addItemInsertIndex = null; // null = after all items, number = before item at that index
 let addItemAbove = localStorage.getItem('addItemAbove') !== '0';
 
+const TOAST_DURATION = 2200;
+const TOAST_UNDO_DURATION = 5000;
+const RESIZE_DEBOUNCE = 300;
+
 function parseSVG(svgStr) {
   const tmp = document.createElement('div');
   tmp.innerHTML = svgStr;
@@ -352,6 +356,7 @@ function buildDropdownContent(dropdown) {
     editBtn.className = 'list-menu-edit-btn';
     editBtn.appendChild(parseSVG(PENCIL_ICON));
     editBtn.title = 'Rename list';
+    editBtn.setAttribute('aria-label', 'Rename list');
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       startRenameList(list.id);
@@ -387,6 +392,7 @@ function buildDropdownContent(dropdown) {
     removeBtn.className = 'item-remove';
     removeBtn.appendChild(parseSVG(TRASH_ICON));
     removeBtn.title = 'Delete list';
+    removeBtn.setAttribute('aria-label', 'Delete ' + list.name);
     removeBtn.disabled = lists.length <= 1;
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -404,6 +410,7 @@ function buildDropdownContent(dropdown) {
       e.preventDefault();
       moveDropdownItemOver(item, e.clientY);
     });
+    item.addEventListener('dragenter', (e) => { if (draggingTabEl) e.preventDefault(); });
     item.addEventListener('drop', (e) => e.preventDefault());
 
     handle.addEventListener('dragstart', (e) => {
@@ -517,6 +524,7 @@ function renderListTabs() {
     }
   });
 
+  dropdown.addEventListener('dragenter', (e) => { if (draggingTabEl) e.preventDefault(); });
   dropdown.addEventListener('drop', (e) => e.preventDefault());
 
   document.addEventListener('click', e => {
@@ -533,6 +541,7 @@ function renderListTabs() {
   const addBtn = document.createElement('button');
   addBtn.className = 'list-tab-add';
   addBtn.title = 'New list';
+  addBtn.setAttribute('aria-label', 'New list');
   addBtn.textContent = '+';
   addBtn.addEventListener('click', addList);
   container.appendChild(addBtn);
@@ -808,7 +817,7 @@ function startEditInDOM(id) {
   input.addEventListener('input', updateRows);
   input.addEventListener('paste', () => setTimeout(updateRows, 0));
   let resizeTimer;
-  const onWindowResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(updateRows, 300); };
+  const onWindowResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(updateRows, RESIZE_DEBOUNCE); };
   window.addEventListener('resize', onWindowResize);
   input._onWindowResize = onWindowResize;
   const onBlur = () => commitEdit(id, input.value);
@@ -891,7 +900,8 @@ function loadFromStorage() {
       requestAnimationFrame(() => render());
     }
     updateUndoRedo();
-  } catch {
+  } catch (e) {
+    console.error('Failed to load from storage:', e);
     lists = [{ id: generateId(), name: 'Today', items: [] }];
     activeListId = lists[0].id;
     listOrderHistory = [snapshotListOrder()];
@@ -939,6 +949,7 @@ function renderItem(item) {
   div.appendChild(handle);
 
   div.addEventListener('dragover', (e) => onDragOver(e, div));
+  div.addEventListener('dragenter', (e) => { if (draggingDiv) e.preventDefault(); });
   div.addEventListener('drop', (e) => e.preventDefault());
 
   const cb = document.createElement('input');
@@ -990,6 +1001,7 @@ function renderItem(item) {
   const moveBtn = document.createElement('button');
   moveBtn.className = 'item-move';
   moveBtn.title = 'Move to list';
+  moveBtn.setAttribute('aria-label', 'Move to list');
   moveBtn.appendChild(parseSVG(MOVE_ICON));
   moveBtn.addEventListener('click', (e) => { e.stopPropagation(); openMoveDropdown(item.id, moveBtn); });
   div.appendChild(moveBtn);
@@ -997,6 +1009,7 @@ function renderItem(item) {
   const removeBtn = document.createElement('button');
   removeBtn.className = 'item-remove';
   removeBtn.title = 'Remove';
+  removeBtn.setAttribute('aria-label', 'Remove item');
   removeBtn.appendChild(parseSVG(TRASH_ICON));
   removeBtn.addEventListener('click', () => removeItem(item.id));
   div.appendChild(removeBtn);
@@ -1214,6 +1227,7 @@ function updateAddDirectionBtn() {
   if (!btn) return;
   btn.replaceChildren(parseSVG(addItemAbove ? ADD_DIR_UP_ICON : ADD_DIR_DOWN_ICON));
   btn.title = addItemAbove ? 'Adding above' : 'Adding below';
+  btn.setAttribute('aria-label', addItemAbove ? 'Add above' : 'Add below');
 }
 
 function toggleAddDirection() {
@@ -1771,7 +1785,7 @@ function showToast(message, type = 'success', iconOverride = null, onUndo = null
   }
   toast.classList.add('show');
   clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), onUndo ? 5000 : 2200);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), onUndo ? TOAST_UNDO_DURATION : TOAST_DURATION);
 }
 
 function closeQrCode() {
@@ -1832,7 +1846,10 @@ function init() {
   updateSortButton();
   updateAddDirectionBtn();
   const addItemBtn = document.getElementById('addItemBtn');
-  if (addItemBtn) addItemBtn.replaceChildren(parseSVG(PLUS_ICON));
+  if (addItemBtn) {
+    addItemBtn.replaceChildren(parseSVG(PLUS_ICON));
+    addItemBtn.setAttribute('aria-label', 'Add item');
+  }
   (function initTheme() {
     const saved = localStorage.getItem('theme');
     applyTheme(saved || 'dark');
@@ -1882,6 +1899,7 @@ function init() {
         grip.addEventListener('touchend', () => onTouchEnd(addRow));
         grip.addEventListener('touchcancel', () => onTouchEnd(addRow));
         addRow.addEventListener('dragover', (e) => onDragOver(e, addRow));
+        addRow.addEventListener('dragenter', (e) => { if (draggingDiv) e.preventDefault(); });
         addRow.addEventListener('drop', (e) => e.preventDefault());
       }
     }

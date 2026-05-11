@@ -313,7 +313,10 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.4rem 0.7rem !important;
+}
+
+.secondary.list-menu-btn {
+  padding: 0.4rem 0.7rem;
 }
 
 .list-menu-btn svg {

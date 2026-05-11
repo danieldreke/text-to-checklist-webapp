@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>Text to checklist</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/icon-192.png?t=1">
+  <link rel="icon" href="icons/icon-192.png">
   <meta name="theme-color" content="#18a84d">
   <meta name="description" content="Paste or type text and instantly turn it into interactive checklists. Create and manage multiple checklists.">
   <meta name="apple-mobile-web-app-title" content="Checklist">
-  <link rel="apple-touch-icon" href="icons/icon-192.png?t=1">
-  <link rel="stylesheet" href="styles.css?t=1">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
@@ -32,7 +33,7 @@
         <button class="secondary" id="undoBtn" disabled>Undo</button>
         <button class="secondary" id="redoBtn" disabled>Redo</button>
         <div class="menu-container" id="menuContainer">
-          <button class="secondary" id="menuBtn" title="More options">
+          <button class="secondary" id="menuBtn" title="More options" aria-label="More options">
             <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>
           </button>
           <div class="dropdown" id="dropdown">
@@ -84,6 +85,6 @@
     </div>
   </div>
 
-  <script src="script.js?t=1" defer></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
