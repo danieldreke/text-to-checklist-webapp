@@ -1503,10 +1503,6 @@ function createQrCode() {
   if (!content) { showToast('List is empty', 'warning'); return; }
   const container = document.getElementById('qrCode');
   container.innerHTML = '';
-  const portrait = window.innerHeight >= window.innerWidth || window.innerWidth <= 600;
-  const size = portrait
-    ? Math.min(420, Math.floor(window.innerWidth * 0.9) - 56)
-    : 280;
   let qr;
   try {
     const bytes = new TextEncoder().encode(content);
@@ -1529,12 +1525,7 @@ function createQrCode() {
   }
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${vb} ${vb}`);
-  if (portrait) {
-    svg.setAttribute('width', '100%');
-  } else {
-    svg.setAttribute('width', size);
-    svg.setAttribute('height', size);
-  }
+  svg.setAttribute('width', '100%');
   svg.setAttribute('shape-rendering', 'crispEdges');
   svg.setAttribute('stroke', 'none');
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1547,7 +1538,15 @@ function createQrCode() {
   path.setAttribute('d', parts.join(''));
   svg.appendChild(path);
   container.appendChild(svg);
-  document.getElementById('qrText').textContent = content;
+  let displayText = content;
+  if (currentView !== 'text') {
+    const list = getActiveList();
+    const rows = [...items]
+      .sort((a, b) => a.originalIndex - b.originalIndex)
+      .map(i => (i.checked ? '- [x] ' : '- [ ] ') + i.text);
+    displayText = ['# ' + (list ? list.name : ''), ...rows].join('\n');
+  }
+  document.getElementById('qrText').textContent = displayText;
   document.getElementById('qrModal').style.display = 'flex';
 }
 
@@ -1570,35 +1569,45 @@ async function copyQrText() {
 async function copyQrCode() {
   const svgEl = document.querySelector('#qrCode svg');
   if (!svgEl) return;
-  const w = parseInt(svgEl.getAttribute('width'));
-  const h = parseInt(svgEl.getAttribute('height'));
-  const padding = 24;
-  const svgData = new XMLSerializer().serializeToString(svgEl);
-  const blob = new Blob([svgData], { type: 'image/svg+xml' });
-  const url = URL.createObjectURL(blob);
-  const img = new Image();
-  img.onload = () => {
-    const padded = document.createElement('canvas');
-    padded.width = w + padding * 2;
-    padded.height = h + padding * 2;
-    const ctx = padded.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, padded.width, padded.height);
-    ctx.drawImage(img, padding, padding, w, h);
-    URL.revokeObjectURL(url);
-    padded.toBlob(async (pngBlob) => {
-      if (!pngBlob) return;
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': pngBlob })
-        ]);
-        showToast('QR code copied to clipboard');
-      } catch (err) {
-        console.error('Could not copy QR image:', err);
-      }
-    }, 'image/png');
-  };
-  img.src = url;
+
+  const pngBlobPromise = new Promise((resolve, reject) => {
+    const rect = svgEl.getBoundingClientRect();
+    const scale = window.devicePixelRatio || 2;
+    const w = Math.round(rect.width * scale);
+    const h = Math.round(rect.height * scale);
+    const clone = svgEl.cloneNode(true);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((pngBlob) => {
+        if (pngBlob) resolve(pngBlob);
+        else reject(new Error('toBlob returned null'));
+      }, 'image/png');
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': pngBlobPromise })
+    ]);
+    showToast('QR code copied to clipboard');
+  } catch (err) {
+    console.error('Could not copy QR image:', err);
+    showToast('Could not copy QR code', 'warning');
+  }
 }
 
 function showToast(message, type = 'success', iconOverride = null) {
