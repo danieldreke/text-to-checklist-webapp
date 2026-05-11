@@ -1196,6 +1196,7 @@ function removeItem(id) {
     if (rank < addItemInsertIndex) addItemInsertIndex--;
   }
   items = items.filter(i => i.id !== id);
+  sortedItemsCache = null;
   pushHistory();
   saveToStorage();
   render();
