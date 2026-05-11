@@ -1489,28 +1489,60 @@ function toggleCheckedVisibility() {
 }
 
 function createQrCode() {
-  if (typeof QRCode === 'undefined') {
+  if (typeof qrcodegen === 'undefined') {
     const s = document.createElement('script');
-    s.src = 'qrcode.min.keeex.js?t=1';
+    s.src = 'qrcodegen-nayuki.js';
     s.onload = createQrCode;
+    s.onerror = () => showToast('Could not load QR library', 'warning');
     document.head.appendChild(s);
     return;
   }
-  const content = serializeList();
-  if (!content) return;
+  const content = currentView === 'text'
+    ? document.getElementById('input').value.trim()
+    : serializeList();
+  if (!content) { showToast('List is empty', 'warning'); return; }
   const container = document.getElementById('qrCode');
   container.innerHTML = '';
   const portrait = window.innerHeight >= window.innerWidth || window.innerWidth <= 600;
-  const vw = window.innerWidth;
   const size = portrait
-    ? Math.min(420, Math.floor(vw * 0.9) - 56)
+    ? Math.min(420, Math.floor(window.innerWidth * 0.9) - 56)
     : 280;
-  new QRCode(container, {
-    text: content,
-    width: size,
-    height: size,
-    correctLevel: QRCode.CorrectLevel.M,
-  });
+  let qr;
+  try {
+    const bytes = new TextEncoder().encode(content);
+    const segs = [
+      qrcodegen.QrSegment.makeEci(26),
+      qrcodegen.QrSegment.makeBytes(bytes),
+    ];
+    qr = qrcodegen.QrCode.encodeSegments(segs, qrcodegen.QrCode.Ecc.MEDIUM);
+  } catch {
+    showToast('QR code failed — content may be too large', 'warning');
+    return;
+  }
+  const vb = qr.size + 8;
+  const parts = [];
+  for (let y = 0; y < qr.size; y++) {
+    for (let x = 0; x < qr.size; x++) {
+      if (qr.getModule(x, y))
+        parts.push(`M${x + 4},${y + 4}h1v1h-1z`);
+    }
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${vb} ${vb}`);
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+  svg.setAttribute('shape-rendering', 'crispEdges');
+  svg.setAttribute('stroke', 'none');
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', vb);
+  bg.setAttribute('height', vb);
+  bg.setAttribute('fill', '#fff');
+  svg.appendChild(bg);
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('fill', '#000');
+  path.setAttribute('d', parts.join(''));
+  svg.appendChild(path);
+  container.appendChild(svg);
   document.getElementById('qrText').textContent = content;
   document.getElementById('qrModal').style.display = 'flex';
 }
@@ -1532,27 +1564,37 @@ async function copyQrText() {
 }
 
 async function copyQrCode() {
-  const canvas = document.querySelector('#qrCode canvas');
-  if (!canvas) return;
+  const svgEl = document.querySelector('#qrCode svg');
+  if (!svgEl) return;
+  const w = parseInt(svgEl.getAttribute('width'));
+  const h = parseInt(svgEl.getAttribute('height'));
   const padding = 24;
-  const padded = document.createElement('canvas');
-  padded.width = canvas.width + padding * 2;
-  padded.height = canvas.height + padding * 2;
-  const ctx = padded.getContext('2d');
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, padded.width, padded.height);
-  ctx.drawImage(canvas, padding, padding);
-  padded.toBlob(async (blob) => {
-    if (!blob) return;
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
-      ]);
-      showToast('QR code copied to clipboard');
-    } catch (err) {
-      console.error('Could not copy QR image:', err);
-    }
-  }, 'image/png');
+  const svgData = new XMLSerializer().serializeToString(svgEl);
+  const blob = new Blob([svgData], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const padded = document.createElement('canvas');
+    padded.width = w + padding * 2;
+    padded.height = h + padding * 2;
+    const ctx = padded.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, padded.width, padded.height);
+    ctx.drawImage(img, padding, padding, w, h);
+    URL.revokeObjectURL(url);
+    padded.toBlob(async (pngBlob) => {
+      if (!pngBlob) return;
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': pngBlob })
+        ]);
+        showToast('QR code copied to clipboard');
+      } catch (err) {
+        console.error('Could not copy QR image:', err);
+      }
+    }, 'image/png');
+  };
+  img.src = url;
 }
 
 function showToast(message, type = 'success', iconOverride = null) {

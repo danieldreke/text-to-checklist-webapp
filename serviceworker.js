@@ -1,10 +1,10 @@
-const CACHE = 'text-to-checklist-v11';
+const CACHE = 'text-to-checklist-v12';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './script.js',
-  './qrcode.min.keeex.js',
+  './qrcodegen-nayuki.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
