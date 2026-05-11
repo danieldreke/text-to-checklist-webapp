@@ -804,7 +804,7 @@ function startEditInDOM(id) {
   window.addEventListener('resize', onWindowResize);
   input._onWindowResize = onWindowResize;
   const onBlur = () => commitEdit(id, input.value);
-  // input.addEventListener('blur', onBlur);
+  input.addEventListener('blur', onBlur);
   input._commitBlur = onBlur;
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
@@ -829,7 +829,7 @@ function stopEditInDOM(id) {
   if (input) {
     if (input._commitBlur) input.removeEventListener('blur', input._commitBlur);
     if (input._onWindowResize) window.removeEventListener('resize', input._onWindowResize);
-    // input.remove();
+    input.remove();
   }
 }
 
