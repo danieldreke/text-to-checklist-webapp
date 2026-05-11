@@ -38,18 +38,31 @@ function saveCurrentListItems() {
   if (list) list.items = items.map(i => ({ ...i }));
 }
 
+function parseTextareaLines(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
+  const seen = new Set();
+  let duplicates = 0;
+  const unique = [];
+  lines.forEach(line => {
+    const parsed = parseLine(line);
+    if (seen.has(parsed.text)) { duplicates++; return; }
+    seen.add(parsed.text);
+    unique.push(parsed);
+  });
+  return {
+    items: unique.map((parsed, idx) => ({
+      id: 'item-' + idx + '-' + Date.now(),
+      text: parsed.text,
+      originalIndex: idx,
+      checked: parsed.checked,
+    })),
+    duplicates,
+  };
+}
+
 function saveCurrentState() {
   if (currentView === 'text') {
-    const text = document.getElementById('input').value;
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const seen = new Set();
-    items = [];
-    lines.forEach((line, idx) => {
-      const parsed = parseLine(line);
-      if (seen.has(parsed.text)) return;
-      seen.add(parsed.text);
-      items.push({ id: 'item-' + idx + '-' + Date.now(), text: parsed.text, originalIndex: idx, checked: parsed.checked });
-    });
+    ({ items } = parseTextareaLines(document.getElementById('input').value));
   }
   saveCurrentListItems();
 }
@@ -164,9 +177,9 @@ function showConfirm(message, onOk) {
   }
   document.getElementById('confirmMsg').textContent = message;
   modal.style.display = 'flex';
-  document.getElementById('confirmOkBtn').onclick = () => { modal.style.display = 'none'; onOk(); };
-  document.getElementById('confirmCancelBtn').onclick = () => { modal.style.display = 'none'; };
-  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+  document.getElementById('confirmOkBtn').onclick = (e) => { e.stopPropagation(); modal.style.display = 'none'; onOk(); };
+  document.getElementById('confirmCancelBtn').onclick = (e) => { e.stopPropagation(); modal.style.display = 'none'; };
+  modal.onclick = e => { if (e.target === modal) { e.stopPropagation(); modal.style.display = 'none'; } };
 
   const handleEscapeKey = (e) => {
     if (e.key === 'Escape' && modal.style.display !== 'none') {
@@ -661,6 +674,7 @@ function updateUndoRedo() {
 }
 
 function parseLine(line) {
+  if (line.startsWith('- ')) line = line.slice(2);
   const m = line.match(/^\[([ xX])\]\s*(.*)$/);
   if (m) return { text: m[2], checked: m[1].toLowerCase() === 'x' };
   return { text: line, checked: false };
@@ -697,23 +711,8 @@ function switchView(view) {
 }
 
 function parseTextToList() {
-  const text = document.getElementById('input').value;
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const seen = new Set();
-  const unique = [];
-  let duplicates = 0;
-  lines.forEach(line => {
-    const parsed = parseLine(line);
-    if (seen.has(parsed.text)) { duplicates++; return; }
-    seen.add(parsed.text);
-    unique.push(parsed);
-  });
-  items = unique.map((parsed, idx) => ({
-    id: 'item-' + idx + '-' + Date.now(),
-    text: parsed.text,
-    originalIndex: idx,
-    checked: parsed.checked,
-  }));
+  const { items: parsed, duplicates } = parseTextareaLines(document.getElementById('input').value);
+  items = parsed;
   sortedItemsCache = null;
   saveToStorage();
   render();
@@ -1211,7 +1210,11 @@ function serializeList() {
 }
 
 async function copyToClipboard() {
-  const content = serializeList();
+  const list = getActiveList();
+  const rows = [...items]
+    .sort((a, b) => a.originalIndex - b.originalIndex)
+    .map(i => (i.checked ? '- [x] ' : '- [ ] ') + i.text);
+  const content = ['# ' + (list ? list.name : ''), ...rows].join('\n');
   try {
     await navigator.clipboard.writeText(content);
   } catch {
@@ -1225,6 +1228,89 @@ async function copyToClipboard() {
   showToast('List copied to clipboard');
 }
 
+async function copyAllListsToClipboard() {
+  saveCurrentListItems();
+  const parts = lists.map(l => {
+    const rows = l.items
+      .slice()
+      .sort((a, b) => a.originalIndex - b.originalIndex)
+      .map(i => (i.checked ? '- [x] ' : '- [ ] ') + i.text);
+    return ['# ' + l.name, ...rows].join('\n');
+  });
+  const content = parts.join('\n\n');
+  try {
+    await navigator.clipboard.writeText(content);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = content;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  showToast('All ' + lists.length + ' list' + (lists.length !== 1 ? 's' : '') + ' copied to clipboard');
+}
+
+async function importListsFromClipboard() {
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    showToast('Could not read clipboard', 'warning');
+    return;
+  }
+
+  const parsed = [];
+  let current = null;
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('# ')) {
+      if (current) parsed.push(current);
+      current = { name: trimmed.slice(2).trim(), items: [] };
+    } else if (current && /^- \[[ xX]\] /.test(trimmed)) {
+      current.items.push({ text: trimmed.slice(6), checked: trimmed[3].toLowerCase() === 'x' });
+    }
+  }
+  if (current) parsed.push(current);
+
+  if (parsed.length === 0) {
+    showToast('Clipboard does not contain valid list data', 'warning');
+    return;
+  }
+
+  const conflicts = parsed.map(l => l.name).filter(n => {
+    const existing = lists.find(l => l.name.toLowerCase() === n.toLowerCase());
+    return existing && existing.items.length > 0;
+  });
+  if (conflicts.length > 0) {
+    showToast('Already exists: ' + conflicts.join(', '), 'warning');
+    return;
+  }
+
+  let lastId = null;
+  for (const importedList of parsed) {
+    const newItems = importedList.items.map((item, idx) => ({
+      id: 'item-' + idx + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+      text: item.text,
+      checked: item.checked,
+      originalIndex: idx
+    }));
+    const existing = lists.find(l => l.name.toLowerCase() === importedList.name.toLowerCase());
+    if (existing) {
+      existing.items = newItems;
+      lastId = existing.id;
+    } else {
+      const id = generateId();
+      lists.push({ id, name: importedList.name, items: newItems });
+      lastId = id;
+    }
+  }
+
+  saveToStorage();
+  renderListTabs();
+  if (parsed.length === 1) switchList(lastId);
+  showToast('Imported: ' + parsed.map(l => '"' + l.name + '"').join(', '));
+}
 
 function toggleCheckboxFormat() {
   const ta = document.getElementById('input');

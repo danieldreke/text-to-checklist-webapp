@@ -40,6 +40,8 @@
             <button class="secondary" id="toggleCheckboxBtn" data-text-only onclick="toggleCheckboxFormat(); closeMenu()">Toggle [ ]</button>
             <button class="secondary theme-toggle" id="sortBtn" onclick="toggleSort()">Sort A-Z</button>
             <button class="secondary" onclick="copyToClipboard(); closeMenu()">Copy list</button>
+            <button class="secondary" onclick="copyAllListsToClipboard(); closeMenu()">Copy all lists</button>
+            <button class="secondary" onclick="importListsFromClipboard(); closeMenu()">Import list(s) from clipboard</button>
             <button class="secondary theme-toggle" id="checkedToggle" onclick="toggleCheckedVisibility(); closeMenu()">Hide checked</button>
             <button class="secondary" onclick="createQrCode(); closeMenu()">Show QR code</button>
             <button class="secondary danger" onclick="clearDone(); closeMenu()">Clear done</button>
