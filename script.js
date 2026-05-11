@@ -464,6 +464,7 @@ function renderListTabs() {
   const wasDropdownOpen = document.querySelector('.list-menu-dropdown')?.classList.contains('open') ?? false;
   container.innerHTML = '';
   dropdownNeedsRebuild = true;
+  document.getElementById('list')?.classList.toggle('single-list', lists.length < 2);
 
   const listMenuWrapper = document.createElement('div');
   listMenuWrapper.className = 'list-menu-wrapper';
@@ -954,6 +955,13 @@ function renderItem(item) {
 
   div.appendChild(wrap);
 
+  const moveBtn = document.createElement('button');
+  moveBtn.className = 'item-move';
+  moveBtn.title = 'Move to list';
+  moveBtn.innerHTML = MOVE_ICON;
+  moveBtn.addEventListener('click', (e) => { e.stopPropagation(); openMoveDropdown(item.id, moveBtn); });
+  div.appendChild(moveBtn);
+
   const removeBtn = document.createElement('button');
   removeBtn.className = 'item-remove';
   removeBtn.title = 'Remove';
@@ -1289,6 +1297,109 @@ function removeItem(id) {
   if (item) showToast('Item removed: ' + item.text, 'warning', TRASH_ICON);
 }
 
+let moveDropdownEl = null;
+let moveDropdownItemId = null;
+
+function openMoveDropdown(itemId, btnEl) {
+  const otherLists = lists.filter(l => l.id !== activeListId);
+  if (otherLists.length === 0) return;
+
+  if (moveDropdownEl && moveDropdownItemId === itemId) {
+    closeMoveDropdown();
+    return;
+  }
+  closeMoveDropdown();
+
+  moveDropdownItemId = itemId;
+  const el = document.createElement('div');
+  el.className = 'move-dropdown';
+  otherLists.forEach(list => {
+    const btn = document.createElement('button');
+    btn.className = 'secondary';
+    btn.textContent = list.name;
+    btn.addEventListener('click', () => { moveItemToList(itemId, list.id); closeMoveDropdown(); });
+    el.appendChild(btn);
+  });
+  document.body.appendChild(el);
+  moveDropdownEl = el;
+
+  const rect = btnEl.getBoundingClientRect();
+  const pad = 8;
+  el.style.right = Math.max(pad, window.innerWidth - rect.right) + 'px';
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < el.offsetHeight + pad && rect.top > spaceBelow) {
+    el.style.bottom = (window.innerHeight - rect.top + pad) + 'px';
+    el.style.top = 'auto';
+  } else {
+    el.style.top = (rect.bottom + pad) + 'px';
+    el.style.bottom = 'auto';
+  }
+}
+
+function closeMoveDropdown() {
+  moveDropdownEl?.remove();
+  moveDropdownEl = null;
+  moveDropdownItemId = null;
+}
+
+function moveItemToList(itemId, targetListId) {
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+  const targetList = lists.find(l => l.id === targetListId);
+  if (!targetList) return;
+
+  const sourceListId = activeListId;
+  const savedItem = { ...item };
+  const savedOriginalIndex = item.originalIndex;
+
+  items = items.filter(i => i.id !== itemId);
+  reindex();
+  pushHistory();
+
+  const movedItem = { ...item, originalIndex: targetList.items.length };
+  targetList.items.push(movedItem);
+  targetList.items.forEach((i, idx) => { i.originalIndex = idx; });
+
+  saveToStorage();
+  getItemEl(itemId)?.remove();
+  updateFooter();
+
+  let toast = document.getElementById('toast');
+  if (!toast) { toast = document.createElement('div'); toast.id = 'toast'; document.body.appendChild(toast); }
+  toast.className = 'toast';
+  toast.innerHTML = MOVE_ICON + '<span>"' + savedItem.text + '" moved to "' + targetList.name + '"</span>';
+  const undoBtn = document.createElement('button');
+  undoBtn.className = 'toast-undo';
+  undoBtn.textContent = 'Undo';
+  undoBtn.addEventListener('click', () => {
+    toast.classList.remove('show');
+    clearTimeout(toast._hideTimer);
+    const tgt = lists.find(l => l.id === targetListId);
+    if (tgt) {
+      tgt.items = tgt.items.filter(i => i.id !== itemId);
+      tgt.items.forEach((i, idx) => { i.originalIndex = idx; });
+    }
+    if (activeListId === sourceListId) {
+      items.splice(savedOriginalIndex, 0, { ...savedItem });
+      reindex();
+      pushHistory();
+      saveToStorage();
+      render();
+    } else {
+      const src = lists.find(l => l.id === sourceListId);
+      if (src) {
+        src.items.splice(savedOriginalIndex, 0, { ...savedItem });
+        src.items.forEach((i, idx) => { i.originalIndex = idx; });
+      }
+      saveToStorage();
+    }
+  });
+  toast.appendChild(undoBtn);
+  toast.classList.add('show');
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
 function serializeList() {
   return [...items]
     .sort((a, b) => a.originalIndex - b.originalIndex)
@@ -1438,6 +1549,7 @@ const WARN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const PLUS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 const ARROW_UP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
 const ARROW_DOWN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
+const MOVE_ICON = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M806-440H320v-80h486l-62-62 56-58 160 160-160 160-56-58 62-62ZM600-600v-160H200v560h400v-160h80v160q0 33-23.5 56.5T600-120H200q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h400q33 0 56.5 23.5T680-760v160h-80Z"/></svg>';
 const ADD_DIR_UP_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,5 21,18 3,18" fill="transparent"/></svg>';
 const ADD_DIR_DOWN_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,19 21,6 3,6" fill="transparent"/></svg>';
 
@@ -1643,6 +1755,7 @@ function closeQrCode() {
 document.addEventListener('click', (e) => {
   const container = document.getElementById('menuContainer');
   if (container && !container.contains(e.target)) closeMenu();
+  if (moveDropdownEl && !moveDropdownEl.contains(e.target) && !e.target.closest('.item-move')) closeMoveDropdown();
 });
 
 window.addEventListener('resize', () => {
@@ -1655,7 +1768,7 @@ document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
-  else if (e.key === 'Escape') closeQrCode();
+  else if (e.key === 'Escape') { closeQrCode(); closeMoveDropdown(); }
 });
 
 function init() {
