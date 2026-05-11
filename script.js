@@ -225,10 +225,14 @@ function startRenameList(id) {
   renamingListId = id;
   renderListTabs();
 
-  const input = document.querySelector('.list-tab-input') || document.querySelector('.list-menu-input');
+  const input = document.querySelector('.list-menu-input') || document.querySelector('.list-tab-input');
   if (input) {
     input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+    if (id === pendingListId) {
+      input.select();
+    } else {
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
   }
 }
 
@@ -517,15 +521,15 @@ function renderListTabs() {
     tab.className = 'list-tab' + (list.id === activeListId && renamingListId !== list.id ? ' active' : '');
     tab.dataset.id = list.id;
 
-    if (renamingListId === list.id && !document.querySelector('.list-menu-input')) {
+    if (renamingListId === list.id && !wasDropdownOpen) {
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'list-tab-input';
       input.value = list.name;
       let minInputWidth = 0;
       const resizeTabInput = () => {
-        if (!minInputWidth) minInputWidth = measureTextWidth(list.name, input) + 14;
-        input.style.width = Math.max(minInputWidth, measureTextWidth(input.value, input) + 14) + 'px';
+        if (!minInputWidth) minInputWidth = measureTextWidth(list.name, input) + 4;
+        input.style.width = Math.max(minInputWidth, measureTextWidth(input.value, input) + 4) + 'px';
       };
       input.addEventListener('focus', resizeTabInput);
       input.addEventListener('input', resizeTabInput);

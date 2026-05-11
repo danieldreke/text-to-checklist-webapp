@@ -251,7 +251,7 @@ h1 {
   min-width: 0;
   outline: none;
   box-sizing: content-box;
-  align-self: stretch;
+  height: calc(var(--button-height) * 0.8);
 }
 
 .list-tab-add {
