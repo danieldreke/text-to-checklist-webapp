@@ -1,7 +1,7 @@
 {
   "name": "Text to Checklist",
   "short_name": "Checklist",
-  "description": "Convert text to an interactive checklist",
+  "description": "Paste or type text and instantly turn it into interactive checklists. Create and manage multiple checklists.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#1e1e2e",
