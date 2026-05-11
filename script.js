@@ -479,9 +479,19 @@ function renderListTabs() {
 
   function positionDropdown() {
     const rect = listMenuBtn.getBoundingClientRect();
-    dropdown.style.top = (rect.bottom + 4) + 'px';
+    const pad = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - pad;
+    const spaceAbove = rect.top - pad;
     dropdown.style.left = rect.left + 'px';
-    dropdown.style.maxHeight = (window.innerHeight - rect.bottom - 12) + 'px';
+    if (spaceAbove > spaceBelow) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = (window.innerHeight - rect.top + pad) + 'px';
+      dropdown.style.maxHeight = spaceAbove + 'px';
+    } else {
+      dropdown.style.bottom = 'auto';
+      dropdown.style.top = (rect.bottom + pad) + 'px';
+      dropdown.style.maxHeight = spaceBelow + 'px';
+    }
   }
 
   listMenuBtn.addEventListener('click', e => {
@@ -1357,13 +1367,16 @@ function openMoveDropdown(itemId, btnEl) {
   const rect = btnEl.getBoundingClientRect();
   const pad = 8;
   el.style.right = Math.max(pad, window.innerWidth - rect.right) + 'px';
-  const spaceBelow = window.innerHeight - rect.bottom;
-  if (spaceBelow < el.offsetHeight + pad && rect.top > spaceBelow) {
-    el.style.bottom = (window.innerHeight - rect.top + pad) + 'px';
+  const spaceBelow = window.innerHeight - rect.bottom - pad;
+  const spaceAbove = rect.top - pad;
+  if (spaceAbove > spaceBelow) {
     el.style.top = 'auto';
+    el.style.bottom = (window.innerHeight - rect.top + pad) + 'px';
+    el.style.maxHeight = spaceAbove + 'px';
   } else {
-    el.style.top = (rect.bottom + pad) + 'px';
     el.style.bottom = 'auto';
+    el.style.top = (rect.bottom + pad) + 'px';
+    el.style.maxHeight = spaceBelow + 'px';
   }
 }
 
