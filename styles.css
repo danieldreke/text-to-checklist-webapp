@@ -545,7 +545,6 @@ h1 {
 textarea {
   width: 100%;
   flex: 1;
-  min-height: 240px;
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -755,22 +754,24 @@ button.secondary.danger:hover:not(:disabled) {
   padding: 0 0.3rem;
 }
 
+
 .item label.editing {
   visibility: hidden;
 }
 
 .item .edit-input {
   position: absolute;
-  inset: 0;
   width: 100%;
   font-size: 0.95rem;
   font-family: inherit;
-  padding: 0 0.3rem;
+  padding: 0.3rem;
   border: 1px solid var(--border-focus);
   border-radius: 4px;
   background: var(--bg);
   color: var(--text);
   outline: none;
+  resize: none;
+  overflow: hidden;
 }
 
 .item.checked label {
@@ -1063,7 +1064,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 @media (orientation: portrait), (max-width: 600px) {
   body {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem;
   }
 
   .item,
@@ -1095,5 +1096,42 @@ button.secondary.danger:hover:not(:disabled) {
     min-height: 0;
     max-height: none;
     font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .item,
+  .add-item-row {
+    padding: 0.2rem 0.15rem;
+    gap: 0.3rem;
+  }
+
+  .item input[type="checkbox"] {
+    margin-right: 0.3rem;
+  }
+
+  .item label,
+  .item .edit-input {
+    padding: 0.3rem;
+    font-size: 0.875rem;
+  }
+
+  .item-move,
+  .item-remove {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+
+  .item-remove {
+    margin-left: -0.2rem;
+  }
+
+  .drag-handle {
+    padding: 0.1rem 0 0.1rem 0.2rem;
+  }
+
+  .drag-handle svg {
+    width: 1rem;
+    height: 1rem;
   }
 }

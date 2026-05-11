@@ -777,18 +777,41 @@ function startEditInDOM(id) {
   const wrap = el.querySelector('.item-label-wrap');
   const label = el.querySelector('label');
   label.classList.add('editing');
-  const input = document.createElement('input');
-  input.type = 'text';
+  const input = document.createElement('textarea');
   input.className = 'edit-input';
+  input.rows = 1;
   input.value = label.textContent;
+  const updateRows = () => {
+    const style = getComputedStyle(input);
+    const paddingLeft = parseFloat(style.paddingLeft);
+    const paddingRight = parseFloat(style.paddingRight);
+    const availableWidth = input.clientWidth - paddingLeft - paddingRight;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${style.fontSize} ${style.fontFamily}`;
+    const lines = input.value.split('\n');
+    let totalRows = 0;
+    for (const line of lines) {
+      const w = ctx.measureText(line).width;
+      totalRows += Math.max(1, Math.ceil(w / availableWidth));
+    }
+    input.rows = Math.max(1, totalRows);
+  };
+  input.addEventListener('input', updateRows);
+  input.addEventListener('paste', () => setTimeout(updateRows, 0));
+  let resizeTimer;
+  const onWindowResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(updateRows, 300); };
+  window.addEventListener('resize', onWindowResize);
+  input._onWindowResize = onWindowResize;
   const onBlur = () => commitEdit(id, input.value);
-  input.addEventListener('blur', onBlur);
+  // input.addEventListener('blur', onBlur);
   input._commitBlur = onBlur;
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
     else if (e.key === 'Escape') { cancelEdit(id); }
   });
   wrap.appendChild(input);
+  updateRows();
   input.focus();
   if (cursorPosition !== null) {
     input.setSelectionRange(cursorPosition, cursorPosition);
@@ -805,7 +828,8 @@ function stopEditInDOM(id) {
   const input = el.querySelector('.edit-input');
   if (input) {
     if (input._commitBlur) input.removeEventListener('blur', input._commitBlur);
-    input.remove();
+    if (input._onWindowResize) window.removeEventListener('resize', input._onWindowResize);
+    // input.remove();
   }
 }
 
@@ -943,7 +967,7 @@ function renderItem(item) {
 
     if (editingId === item.id) {
       const input = document.querySelector('.edit-input');
-      if (input) input.setSelectionRange(pos, pos);
+      if (input && cursorPosition !== null) input.setSelectionRange(cursorPosition, cursorPosition);
     } else if (editingId) {
       switchEditTo(item.id);
     } else {
@@ -1121,6 +1145,8 @@ function commitEdit(id, value) {
 
   item.text = trimmed;
   updateItemTextInDOM(id, trimmed);
+  const textarea = getItemEl(id)?.querySelector('.item-text');
+  if (textarea) resizeItemTextarea(textarea);
   pushHistory();
   saveToStorage();
 }
