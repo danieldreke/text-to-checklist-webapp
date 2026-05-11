@@ -481,6 +481,7 @@ function renderListTabs() {
     const rect = listMenuBtn.getBoundingClientRect();
     dropdown.style.top = (rect.bottom + 4) + 'px';
     dropdown.style.left = rect.left + 'px';
+    dropdown.style.maxHeight = (window.innerHeight - rect.bottom - 12) + 'px';
   }
 
   listMenuBtn.addEventListener('click', e => {
@@ -1339,6 +1340,10 @@ function openMoveDropdown(itemId, btnEl) {
   moveDropdownItemId = itemId;
   const el = document.createElement('div');
   el.className = 'move-dropdown';
+  const title = document.createElement('div');
+  title.className = 'move-dropdown-title';
+  title.textContent = 'Move to list:';
+  el.appendChild(title);
   otherLists.forEach(list => {
     const btn = document.createElement('button');
     btn.className = 'secondary';

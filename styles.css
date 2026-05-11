@@ -312,6 +312,7 @@ h1 {
   flex-direction: column;
   gap: 0.25rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  overflow-y: auto;
 }
 
 .list-menu-dropdown.open {
@@ -815,14 +816,19 @@ button.secondary.danger:hover:not(:disabled) {
   flex-direction: column;
   gap: 0.25rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  min-width: 120px;
+  max-height: 67vh;
+  overflow-y: auto;
+}
+
+.move-dropdown-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0.15rem 0.5rem 0.25rem;
 }
 
 .move-dropdown button {
-  width: 100%;
   justify-content: flex-start;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1100,6 +1106,17 @@ button.secondary.danger:hover:not(:disabled) {
 }
 
 @media (max-width: 600px) {
+  .move-dropdown {
+    padding: 0.15rem;
+    gap: 0.15rem;
+  }
+
+  .move-dropdown button {
+    height: 1.6rem;
+    font-size: 0.8rem;
+    padding: 0 0.5rem;
+  }
+
   .item,
   .add-item-row {
     padding: 0.2rem 0.15rem;
