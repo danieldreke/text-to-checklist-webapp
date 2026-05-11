@@ -94,12 +94,20 @@ function switchList(id) {
   renderListTabs();
 }
 
+function uniqueDefaultListName() {
+  const existing = new Set(lists.map(l => l.name.toLowerCase()));
+  let n = lists.length + 1;
+  let name = 'List ' + n;
+  while (existing.has(name.toLowerCase())) name = 'List ' + (++n);
+  return name;
+}
+
 function addList() {
   saveCurrentState();
   const id = generateId();
   pendingListId = id;
   pendingListPrevActiveId = activeListId;
-  lists.unshift({ id, name: 'List ' + (lists.length + 1), items: [] });
+  lists.unshift({ id, name: uniqueDefaultListName(), items: [] });
   activeListId = id;
   items = [];
   history = [[]];
@@ -238,8 +246,16 @@ function startRenameList(id) {
 
 function commitRenameList(id, name) {
   if (renamingListId !== id) return;
+  const trimmed = name.trim();
+  if (trimmed && lists.some(l => l.id !== id && l.name.toLowerCase() === trimmed.toLowerCase())) {
+    showToast(`"${trimmed}" already exists`, 'warning');
+    renderListTabs();
+    const input = document.querySelector('.list-menu-input') || document.querySelector('.list-tab-input');
+    if (input) { input.focus(); input.select(); }
+    return;
+  }
   const list = lists.find(l => l.id === id);
-  if (list) list.name = name.trim() || list.name;
+  if (list) list.name = trimmed || list.name;
   renamingListId = null;
   pendingListId = null;
   pendingListPrevActiveId = null;
