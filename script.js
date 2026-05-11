@@ -1497,10 +1497,13 @@ function createQrCode() {
     document.head.appendChild(s);
     return;
   }
-  const content = currentView === 'text'
-    ? document.getElementById('input').value.trim()
-    : serializeList();
-  if (!content) { showToast('List is empty', 'warning'); return; }
+  const list = getActiveList();
+  const sourceItems = currentView === 'text'
+    ? parseTextareaLines(document.getElementById('input').value).items
+    : [...items].sort((a, b) => a.originalIndex - b.originalIndex);
+  if (!sourceItems.length) { showToast('List is empty', 'warning'); return; }
+  const rows = sourceItems.map(i => (i.checked ? '- [x] ' : '- [ ] ') + i.text);
+  const content = ['# ' + (list ? list.name : ''), ...rows].join('\n');
   const container = document.getElementById('qrCode');
   container.innerHTML = '';
   let qr;
@@ -1538,15 +1541,7 @@ function createQrCode() {
   path.setAttribute('d', parts.join(''));
   svg.appendChild(path);
   container.appendChild(svg);
-  let displayText = content;
-  if (currentView !== 'text') {
-    const list = getActiveList();
-    const rows = [...items]
-      .sort((a, b) => a.originalIndex - b.originalIndex)
-      .map(i => (i.checked ? '- [x] ' : '- [ ] ') + i.text);
-    displayText = ['# ' + (list ? list.name : ''), ...rows].join('\n');
-  }
-  document.getElementById('qrText').textContent = displayText;
+  document.getElementById('qrText').textContent = content;
   document.getElementById('qrModal').style.display = 'flex';
 }
 
