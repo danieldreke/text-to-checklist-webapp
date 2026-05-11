@@ -1,38 +1,39 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
-const dist = 'dist';
-fs.mkdirSync(dist, { recursive: true });
-fs.mkdirSync(path.join(dist, 'icons'), { recursive: true });
+async function build() {
+  const dist = 'dist';
+  await fs.mkdir(dist, { recursive: true });
+  await fs.mkdir(path.join(dist, 'icons'), { recursive: true });
 
-let html = fs.readFileSync('index.html', 'utf8');
-const css = fs.readFileSync('styles.css', 'utf8');
-const js = fs.readFileSync('script.js', 'utf8');
+  const [html, css, qrLib, js, sw] = await Promise.all([
+    fs.readFile('index.html', 'utf8'),
+    fs.readFile('styles.css', 'utf8'),
+    fs.readFile('qrcodegen-nayuki.js', 'utf8'),
+    fs.readFile('script.js', 'utf8'),
+    fs.readFile('serviceworker.js', 'utf8'),
+  ]);
 
-html = html.replace(
-  /<link rel="stylesheet" href="styles\.css[^"]*">/,
-  `<style>\n${css}\n</style>`
-);
+  let out = html;
+  out = out.replace(/<link rel="stylesheet" href="styles\.css[^"]*">/, `<style>\n${css}\n</style>`);
+  out = out.replace(/\n\s*<script src="qrcodegen-nayuki\.js[^"]*"[^>]*><\/script>/, '');
+  const safeJs = (qrLib + '\n' + js).replace(/<\/script>/gi, '<\\/script>');
+  out = out.replace(/<script src="script\.js[^"]*"[^>]*><\/script>/, `<script>\n${safeJs}\n</script>`);
 
-const safeJs = js.replace(/<\/script>/gi, '<\\/script>');
-html = html.replace(
-  /<script src="script\.js[^"]*"[^>]*><\/script>/,
-  `<script>\n${safeJs}\n</script>`
-);
+  let distSw = sw
+    .replace(/\n\s*'\.\/styles\.css',?/g, '')
+    .replace(/\n\s*'\.\/script\.js',?/g, '')
+    .replace(/\n\s*'\.\/qrcodegen-nayuki\.js',?/g, '');
 
-fs.writeFileSync(path.join(dist, 'index.html'), html);
+  const icons = await fs.readdir('icons');
+  await Promise.all([
+    fs.writeFile(path.join(dist, 'index.html'), out),
+    fs.writeFile(path.join(dist, 'serviceworker.js'), distSw),
+    fs.copyFile('manifest.json', path.join(dist, 'manifest.json')),
+    ...icons.map(f => fs.copyFile(path.join('icons', f), path.join(dist, 'icons', f))),
+  ]);
 
-// Strip inlined assets from SW cache list
-let sw = fs.readFileSync('serviceworker.js', 'utf8');
-sw = sw.replace(/\n\s*'\.\/styles\.css',?/g, '');
-sw = sw.replace(/\n\s*'\.\/script\.js',?/g, '');
-fs.writeFileSync(path.join(dist, 'serviceworker.js'), sw);
-
-for (const file of ['manifest.json', 'qrcodegen-nayuki.js']) {
-  fs.copyFileSync(file, path.join(dist, file));
+  console.log('Build complete → dist/');
 }
-for (const file of fs.readdirSync('icons')) {
-  fs.copyFileSync(path.join('icons', file), path.join(dist, 'icons', file));
-}
 
-console.log('Build complete → dist/');
+build().catch(err => { console.error(err); process.exit(1); });

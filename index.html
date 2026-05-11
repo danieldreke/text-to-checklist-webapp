@@ -14,8 +14,8 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <div class="header">
+  <main class="container">
+    <header class="header">
       <div class="header-title">
         <h1>Text to checklist</h1>
         <div class="header-title-actions">
@@ -50,11 +50,11 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="list-tabs-row">
+    </header>
+    <nav class="list-tabs-row" aria-label="Lists">
       <span class="list-tabs-label">Lists</span>
       <div id="listTabs" class="list-tabs"></div>
-    </div>
+    </nav>
     <div class="layout" id="layout" data-view="text">
       <div class="pane editor">
         <textarea id="input" placeholder="Paste your text here — one item per line"></textarea>
@@ -71,7 +71,7 @@
         <div id="listFooter" class="list-footer"></div>
       </div>
     </div>
-  </div>
+  </main>
 
   <div id="qrModal" class="qr-modal">
     <div id="qrModalContent" class="qr-modal-content">
@@ -85,6 +85,7 @@
     </div>
   </div>
 
+  <script src="qrcodegen-nayuki.js" defer></script>
   <script src="script.js" defer></script>
 </body>
 </html>

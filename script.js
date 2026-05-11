@@ -902,6 +902,7 @@ function loadFromStorage() {
     updateUndoRedo();
   } catch (e) {
     console.error('Failed to load from storage:', e);
+    showToast('Could not load saved data', 'warning');
     lists = [{ id: generateId(), name: 'Today', items: [] }];
     activeListId = lists[0].id;
     listOrderHistory = [snapshotListOrder()];
@@ -1649,14 +1650,6 @@ function toggleCheckedVisibility() {
 }
 
 function createQrCode() {
-  if (typeof qrcodegen === 'undefined') {
-    const s = document.createElement('script');
-    s.src = 'qrcodegen-nayuki.js';
-    s.onload = createQrCode;
-    s.onerror = () => showToast('Could not load QR library', 'warning');
-    document.head.appendChild(s);
-    return;
-  }
   const list = getActiveList();
   const sourceItems = currentView === 'text'
     ? parseTextareaLines(document.getElementById('input').value).items
@@ -1674,7 +1667,8 @@ function createQrCode() {
       qrcodegen.QrSegment.makeBytes(bytes),
     ];
     qr = qrcodegen.QrCode.encodeSegments(segs, qrcodegen.QrCode.Ecc.MEDIUM);
-  } catch {
+  } catch (e) {
+    console.error('QR encoding failed:', e);
     showToast('QR code failed — content may be too large', 'warning');
     return;
   }
