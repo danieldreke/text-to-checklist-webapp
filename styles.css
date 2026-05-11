@@ -739,7 +739,7 @@ button.secondary.danger:hover:not(:disabled) {
 .item-label-wrap {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -765,6 +765,7 @@ button.secondary.danger:hover:not(:disabled) {
   position: absolute;
   width: 100%;
   font-size: 0.95rem;
+  line-height: 1.4;
   font-family: inherit;
   padding: 0.3rem;
   border: 1px solid var(--border-focus);
@@ -1132,6 +1133,7 @@ button.secondary.danger:hover:not(:disabled) {
   .item .edit-input {
     padding: 0.3rem;
     font-size: 0.875rem;
+    line-height: 1.4;
   }
 
   .item-move,
