@@ -22,7 +22,6 @@ let tabTouchStartX = 0;
 let tabTouchDragging = false;
 
 let addItemInsertIndex = null; // null = after all items, number = before item at that index
-let sortedItemsCache = null;
 let addItemAbove = localStorage.getItem('addItemAbove') !== '0';
 
 function generateId() {
@@ -69,12 +68,12 @@ function saveCurrentState() {
 
 function loadActiveListState() {
   const list = getActiveList();
-  items = list ? list.items.map(i => ({ ...i })) : [];
-  sortedItemsCache = null;
-  history = [items.map(i => ({ ...i }))];
-  historyIndex = 0;
+  if (editingId) stopEditInDOM(editingId);
   editingId = null;
   pendingId = null;
+  items = list ? list.items.map(i => ({ ...i })) : [];
+  history = [items.map(i => ({ ...i }))];
+  historyIndex = 0;
   if (currentView === 'text') {
     const ta = document.getElementById('input');
     ta.value = serializeList();
@@ -105,6 +104,7 @@ function addList() {
   items = [];
   history = [[]];
   historyIndex = 0;
+  if (editingId) stopEditInDOM(editingId);
   editingId = null;
   pendingId = null;
   if (currentView === 'text') {
@@ -607,8 +607,9 @@ function pushHistory() {
 }
 
 function applyHistory() {
+  if (editingId) stopEditInDOM(editingId);
+  editingId = null;
   items = history[historyIndex].map(i => ({ ...i }));
-  sortedItemsCache = null;
   saveToStorage();
   render();
   updateUndoRedo();
@@ -712,8 +713,9 @@ function switchView(view) {
 
 function parseTextToList() {
   const { items: parsed, duplicates } = parseTextareaLines(document.getElementById('input').value);
+  if (editingId) stopEditInDOM(editingId);
+  editingId = null;
   items = parsed;
-  sortedItemsCache = null;
   saveToStorage();
   render();
   if (duplicates > 0) {
@@ -731,12 +733,64 @@ function toggle(id) {
   item.checked = !item.checked;
   pushHistory();
   saveToStorage();
-  render();
+  const el = getItemEl(id);
+  if (el) {
+    el.classList.toggle('checked', item.checked);
+    const cb = el.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = item.checked;
+  }
 }
 
 let editingId = null;
 let pendingId = null;
 let cursorPosition = null;
+
+function getItemEl(id) {
+  return document.querySelector(`#list .item[data-id="${id}"]`);
+}
+
+function startEditInDOM(id) {
+  const el = getItemEl(id);
+  if (!el) return;
+  const wrap = el.querySelector('.item-label-wrap');
+  const label = el.querySelector('label');
+  label.classList.add('editing');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'edit-input';
+  input.value = label.textContent;
+  const onBlur = () => commitEdit(id, input.value);
+  input.addEventListener('blur', onBlur);
+  input._commitBlur = onBlur;
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    else if (e.key === 'Escape') { cancelEdit(id); }
+  });
+  wrap.appendChild(input);
+  input.focus();
+  if (cursorPosition !== null) {
+    input.setSelectionRange(cursorPosition, cursorPosition);
+    cursorPosition = null;
+  } else {
+    input.select();
+  }
+}
+
+function stopEditInDOM(id) {
+  const el = getItemEl(id);
+  if (!el) return;
+  el.querySelector('label')?.classList.remove('editing');
+  const input = el.querySelector('.edit-input');
+  if (input) {
+    if (input._commitBlur) input.removeEventListener('blur', input._commitBlur);
+    input.remove();
+  }
+}
+
+function updateItemTextInDOM(id, text) {
+  const label = getItemEl(id)?.querySelector('label');
+  if (label) label.textContent = text;
+}
 
 function saveToStorage() {
   saveCurrentListItems();
@@ -795,28 +849,11 @@ function loadFromStorage() {
 function render() {
   const list = document.getElementById('list');
   const addRow = list.querySelector('.add-item-row');
-
   Array.from(list.querySelectorAll('.item')).forEach(el => el.remove());
-
-  if (!sortedItemsCache) sortedItemsCache = [...items].sort((a, b) => a.originalIndex - b.originalIndex);
-  const ordered = sortedItemsCache;
+  const ordered = [...items].sort((a, b) => a.originalIndex - b.originalIndex);
   const splitAt = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, ordered.length) : ordered.length;
-
   ordered.slice(0, splitAt).forEach(i => list.insertBefore(renderItem(i), addRow));
   ordered.slice(splitAt).forEach(i => list.appendChild(renderItem(i)));
-
-  if (editingId) {
-    const input = list.querySelector('.edit-input');
-    if (input) {
-      input.focus();
-      if (cursorPosition !== null) {
-        input.setSelectionRange(cursorPosition, cursorPosition);
-        cursorPosition = null;
-      } else {
-        input.select();
-      }
-    }
-  }
 }
 
 function renderItem(item) {
@@ -879,24 +916,10 @@ function renderItem(item) {
       switchEditTo(item.id);
     } else {
       editingId = item.id;
-      render();
+      startEditInDOM(item.id);
     }
   });
   wrap.appendChild(label);
-
-  if (editingId === item.id) {
-    label.classList.add('editing');
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'edit-input';
-    input.value = item.text;
-    input.addEventListener('blur', () => commitEdit(item.id, input.value));
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      else if (e.key === 'Escape') { cancelEdit(item.id); }
-    });
-    wrap.appendChild(input);
-  }
 
   div.appendChild(wrap);
 
@@ -918,19 +941,26 @@ function switchEditTo(newId) {
     const trimmed = currentInput.value.trim();
     const wasPending = pendingId === oldId;
     pendingId = null;
+    stopEditInDOM(oldId);
     if (oldItem) {
       if (!trimmed) {
         items = items.filter(i => i.id !== oldId);
+        getItemEl(oldId)?.remove();
         if (!wasPending) pushHistory();
       } else if (trimmed !== oldItem.text || wasPending) {
-        oldItem.text = trimmed;
-        pushHistory();
+        if (items.some(i => i.id !== oldId && i.text === trimmed)) {
+          showToast('Duplicate item not allowed', 'warning');
+        } else {
+          oldItem.text = trimmed;
+          updateItemTextInDOM(oldId, trimmed);
+          pushHistory();
+        }
       }
     }
   }
   editingId = newId;
   saveToStorage();
-  render();
+  startEditInDOM(newId);
 }
 
 let draggingDiv = null;
@@ -1010,7 +1040,6 @@ function onTouchEnd(div) {
 
 function reindex() {
   items.forEach((i, idx) => { i.originalIndex = idx; });
-  sortedItemsCache = null;
 }
 
 function commitEdit(id, value) {
@@ -1024,37 +1053,50 @@ function commitEdit(id, value) {
   const wasPending = pendingId === id;
   if (editingId === id) editingId = null;
   if (pendingId === id) pendingId = null;
+
   if (!trimmed) {
     items = items.filter(i => i.id !== id);
     if (!wasPending) pushHistory();
     saveToStorage();
-    render();
+    getItemEl(id)?.remove();
     return;
   }
-  if (trimmed === item.text && !wasPending) { render(); return; }
+
+  const el = getItemEl(id);
+  if (el) {
+    el.querySelector('label')?.classList.remove('editing');
+    el.querySelector('.edit-input')?.remove();
+  }
+
+  if (trimmed === item.text && !wasPending) return;
+
   if (items.some(i => i.id !== id && i.text === trimmed)) {
     if (wasPending) {
       items = items.filter(i => i.id !== id);
       saveToStorage();
+      getItemEl(id)?.remove();
     }
     showToast('Duplicate item not allowed', 'warning');
-    render();
     return;
   }
+
   item.text = trimmed;
+  updateItemTextInDOM(id, trimmed);
   pushHistory();
   saveToStorage();
-  render();
 }
 
 function cancelEdit(id) {
-  if (pendingId === id) {
-    items = items.filter(i => i.id !== id);
-    pendingId = null;
-    saveToStorage();
-  }
   editingId = null;
-  render();
+  if (pendingId === id) {
+    pendingId = null;
+    items = items.filter(i => i.id !== id);
+    saveToStorage();
+    stopEditInDOM(id);
+    getItemEl(id)?.remove();
+  } else {
+    stopEditInDOM(id);
+  }
 }
 
 function addItemFromInput(text) {
@@ -1073,7 +1115,15 @@ function addItemFromInput(text) {
   reindex();
   pushHistory();
   saveToStorage();
-  render();
+
+  const list = document.getElementById('list');
+  const addRow = list.querySelector('.add-item-row');
+  const newEl = renderItem(newItem);
+  if (addItemAbove) {
+    list.insertBefore(newEl, addRow);
+  } else {
+    addRow.insertAdjacentElement('afterend', newEl);
+  }
   return true;
 }
 
@@ -1116,7 +1166,7 @@ function clearDone() {
   reindex();
   pushHistory();
   saveToStorage();
-  render();
+  document.querySelectorAll('#list .item.checked').forEach(el => el.remove());
   showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
 }
 
@@ -1182,10 +1232,13 @@ function clearText() {
 
 function clearList() {
   if (items.length === 0) return;
+  if (editingId) stopEditInDOM(editingId);
+  editingId = null;
+  pendingId = null;
   items = [];
   pushHistory();
   saveToStorage();
-  render();
+  document.querySelectorAll('#list .item').forEach(el => el.remove());
   showToast('List cleared', 'warning', TRASH_ICON);
 }
 
@@ -1196,10 +1249,9 @@ function removeItem(id) {
     if (rank < addItemInsertIndex) addItemInsertIndex--;
   }
   items = items.filter(i => i.id !== id);
-  sortedItemsCache = null;
   pushHistory();
   saveToStorage();
-  render();
+  getItemEl(id)?.remove();
   if (item) showToast('Item removed: ' + item.text, 'warning', TRASH_ICON);
 }
 
@@ -1389,6 +1441,8 @@ function toggleSort() {
     ta.value = sorted.join('\n');
     pushTextareaHistory(ta.value);
   } else {
+    if (editingId) stopEditInDOM(editingId);
+    editingId = null;
     items.sort((a, b) => asc
       ? a.text.localeCompare(b.text)
       : b.text.localeCompare(a.text));
