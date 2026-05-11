@@ -24,6 +24,12 @@ let tabTouchDragging = false;
 let addItemInsertIndex = null; // null = after all items, number = before item at that index
 let addItemAbove = localStorage.getItem('addItemAbove') !== '0';
 
+function parseSVG(svgStr) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = svgStr;
+  return tmp.firstElementChild;
+}
+
 function generateId() {
   return 'list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
 }
@@ -173,14 +179,24 @@ function showConfirm(message, onOk) {
     modal = document.createElement('div');
     modal.id = 'confirmModal';
     modal.className = 'confirm-modal';
-    modal.innerHTML =
-      '<div class="confirm-content">' +
-        '<p id="confirmMsg"></p>' +
-        '<div class="confirm-actions">' +
-          '<button class="secondary" id="confirmCancelBtn">Cancel</button>' +
-          '<button class="secondary danger" id="confirmOkBtn">Delete</button>' +
-        '</div>' +
-      '</div>';
+    const content = document.createElement('div');
+    content.className = 'confirm-content';
+    const msg = document.createElement('p');
+    msg.id = 'confirmMsg';
+    content.appendChild(msg);
+    const actions = document.createElement('div');
+    actions.className = 'confirm-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'secondary';
+    cancelBtn.id = 'confirmCancelBtn';
+    cancelBtn.textContent = 'Cancel';
+    const okBtn = document.createElement('button');
+    okBtn.className = 'secondary danger';
+    okBtn.id = 'confirmOkBtn';
+    okBtn.textContent = 'Delete';
+    actions.append(cancelBtn, okBtn);
+    content.appendChild(actions);
+    modal.appendChild(content);
     document.body.appendChild(modal);
   }
   document.getElementById('confirmMsg').textContent = message;
@@ -199,26 +215,7 @@ function showConfirm(message, onOk) {
 }
 
 function showUndoToast(message) {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    document.body.appendChild(toast);
-  }
-  toast.className = 'toast warning';
-  toast.innerHTML = TRASH_ICON + '<span>' + message + '</span>';
-  const undoBtn = document.createElement('button');
-  undoBtn.className = 'toast-undo';
-  undoBtn.textContent = 'Undo';
-  undoBtn.addEventListener('click', () => {
-    toast.classList.remove('show');
-    clearTimeout(toast._hideTimer);
-    undoDeleteList();
-  });
-  toast.appendChild(undoBtn);
-  toast.classList.add('show');
-  clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 5000);
+  showToast(message, 'warning', TRASH_ICON, undoDeleteList);
 }
 
 function measureTextWidth(text, el) {
@@ -338,7 +335,7 @@ function commitTabReorder() {
 let dropdownNeedsRebuild = true;
 
 function buildDropdownContent(dropdown) {
-  dropdown.innerHTML = '';
+  dropdown.replaceChildren();
   lists.forEach(list => {
     const item = document.createElement('button');
     item.className = 'secondary list-menu-item' + (list.id === activeListId ? ' active' : '');
@@ -347,13 +344,13 @@ function buildDropdownContent(dropdown) {
 
     const handle = document.createElement('span');
     handle.className = 'list-menu-handle';
-    handle.innerHTML = GRIP_ICON;
+    handle.appendChild(parseSVG(GRIP_ICON));
     handle.draggable = true;
     item.appendChild(handle);
 
     const editBtn = document.createElement('button');
     editBtn.className = 'list-menu-edit-btn';
-    editBtn.innerHTML = PENCIL_ICON;
+    editBtn.appendChild(parseSVG(PENCIL_ICON));
     editBtn.title = 'Rename list';
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -388,7 +385,7 @@ function buildDropdownContent(dropdown) {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'item-remove';
-    removeBtn.innerHTML = TRASH_ICON;
+    removeBtn.appendChild(parseSVG(TRASH_ICON));
     removeBtn.title = 'Delete list';
     removeBtn.disabled = lists.length <= 1;
     removeBtn.addEventListener('click', (e) => {
@@ -462,7 +459,7 @@ function renderListTabs() {
     return;
   }
   const wasDropdownOpen = document.querySelector('.list-menu-dropdown')?.classList.contains('open') ?? false;
-  container.innerHTML = '';
+  container.replaceChildren();
   dropdownNeedsRebuild = true;
   document.getElementById('list')?.classList.toggle('single-list', lists.length < 2);
 
@@ -471,7 +468,7 @@ function renderListTabs() {
 
   const listMenuBtn = document.createElement('button');
   listMenuBtn.className = 'secondary list-menu-btn';
-  listMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>Lists';
+  listMenuBtn.replaceChildren(parseSVG(LISTS_ICON), document.createTextNode('Lists'));
   listMenuBtn.title = 'All lists';
 
   const dropdown = document.createElement('div');
@@ -931,7 +928,7 @@ function renderItem(item) {
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
   handle.title = 'Drag to reorder';
-  handle.innerHTML = GRIP_ICON;
+  handle.appendChild(parseSVG(GRIP_ICON));
   handle.draggable = true;
   handle.addEventListener('dragstart', (e) => onDragStart(e, item.id, div));
   handle.addEventListener('dragend', () => onDragEnd(div));
@@ -993,14 +990,14 @@ function renderItem(item) {
   const moveBtn = document.createElement('button');
   moveBtn.className = 'item-move';
   moveBtn.title = 'Move to list';
-  moveBtn.innerHTML = MOVE_ICON;
+  moveBtn.appendChild(parseSVG(MOVE_ICON));
   moveBtn.addEventListener('click', (e) => { e.stopPropagation(); openMoveDropdown(item.id, moveBtn); });
   div.appendChild(moveBtn);
 
   const removeBtn = document.createElement('button');
   removeBtn.className = 'item-remove';
   removeBtn.title = 'Remove';
-  removeBtn.innerHTML = TRASH_ICON;
+  removeBtn.appendChild(parseSVG(TRASH_ICON));
   removeBtn.addEventListener('click', () => removeItem(item.id));
   div.appendChild(removeBtn);
 
@@ -1215,7 +1212,7 @@ function submitAddItem() {
 function updateAddDirectionBtn() {
   const btn = document.getElementById('addDirectionBtn');
   if (!btn) return;
-  btn.innerHTML = addItemAbove ? ADD_DIR_UP_ICON : ADD_DIR_DOWN_ICON;
+  btn.replaceChildren(parseSVG(addItemAbove ? ADD_DIR_UP_ICON : ADD_DIR_DOWN_ICON));
   btn.title = addItemAbove ? 'Adding above' : 'Adding below';
 }
 
@@ -1408,16 +1405,7 @@ function moveItemToList(itemId, targetListId) {
   getItemEl(itemId)?.remove();
   updateFooter();
 
-  let toast = document.getElementById('toast');
-  if (!toast) { toast = document.createElement('div'); toast.id = 'toast'; document.body.appendChild(toast); }
-  toast.className = 'toast';
-  toast.innerHTML = MOVE_ICON + '<span>"' + savedItem.text + '" moved to "' + targetList.name + '"</span>';
-  const undoBtn = document.createElement('button');
-  undoBtn.className = 'toast-undo';
-  undoBtn.textContent = 'Undo';
-  undoBtn.addEventListener('click', () => {
-    toast.classList.remove('show');
-    clearTimeout(toast._hideTimer);
+  showToast(`"${savedItem.text}" moved to "${targetList.name}"`, 'success', MOVE_ICON, () => {
     const tgt = lists.find(l => l.id === targetListId);
     if (tgt) {
       tgt.items = tgt.items.filter(i => i.id !== itemId);
@@ -1438,10 +1426,6 @@ function moveItemToList(itemId, targetListId) {
       saveToStorage();
     }
   });
-  toast.appendChild(undoBtn);
-  toast.classList.add('show');
-  clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 5000);
 }
 
 function serializeList() {
@@ -1459,15 +1443,10 @@ async function copyToClipboard() {
   const content = ['# ' + (list ? list.name : ''), ...rows].join('\n');
   try {
     await navigator.clipboard.writeText(content);
+    showToast('List copied to clipboard');
   } catch {
-    const ta = document.createElement('textarea');
-    ta.value = content;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    showToast('Could not copy to clipboard', 'warning');
   }
-  showToast('List copied to clipboard');
 }
 
 async function copyAllListsToClipboard() {
@@ -1482,15 +1461,10 @@ async function copyAllListsToClipboard() {
   const content = parts.join('\n\n');
   try {
     await navigator.clipboard.writeText(content);
+    showToast('All ' + lists.length + ' list' + (lists.length !== 1 ? 's' : '') + ' copied to clipboard');
   } catch {
-    const ta = document.createElement('textarea');
-    ta.value = content;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    showToast('Could not copy to clipboard', 'warning');
   }
-  showToast('All ' + lists.length + ' list' + (lists.length !== 1 ? 's' : '') + ' copied to clipboard');
 }
 
 async function importListsFromClipboard() {
@@ -1574,11 +1548,10 @@ async function pasteFromClipboard() {
   try {
     const text = await navigator.clipboard.readText();
     input.value = text;
+    showToast('Pasted from clipboard');
   } catch {
-    input.focus();
-    document.execCommand('paste');
+    showToast('Could not read clipboard', 'warning');
   }
-  showToast('Pasted from clipboard');
 }
 
 const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
@@ -1596,11 +1569,12 @@ const ARROW_DOWN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 const MOVE_ICON = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M806-440H320v-80h486l-62-62 56-58 160 160-160 160-56-58 62-62ZM600-600v-160H200v560h400v-160h80v160q0 33-23.5 56.5T600-120H200q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h400q33 0 56.5 23.5T680-760v160h-80Z"/></svg>';
 const ADD_DIR_UP_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,5 21,18 3,18" fill="transparent"/></svg>';
 const ADD_DIR_DOWN_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,19 21,6 3,6" fill="transparent"/></svg>';
+const LISTS_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>';
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   const btn = document.getElementById('themeToggle');
-  btn.innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
+  btn.replaceChildren(parseSVG(theme === 'dark' ? SUN_ICON : MOON_ICON));
   btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
   btn.title = theme === 'dark' ? 'Light' : 'Dark';
   localStorage.setItem('theme', theme);
@@ -1617,8 +1591,9 @@ let sortDirection = 'asc';
 function updateSortButton() {
   const btn = document.getElementById('sortBtn');
   const asc = sortDirection === 'asc';
-  btn.innerHTML = (asc ? ARROW_UP_ICON : ARROW_DOWN_ICON) +
-    '<span>' + (asc ? 'Sort A-Z' : 'Sort Z-A') + '</span>';
+  const sortSpan = document.createElement('span');
+  sortSpan.textContent = asc ? 'Sort A-Z' : 'Sort Z-A';
+  btn.replaceChildren(parseSVG(asc ? ARROW_UP_ICON : ARROW_DOWN_ICON), sortSpan);
 }
 
 function toggleSort() {
@@ -1648,8 +1623,9 @@ function toggleSort() {
 function applyCheckedVisibility(hidden) {
   document.getElementById('list').classList.toggle('hide-checked', hidden);
   const btn = document.getElementById('checkedToggle');
-  btn.innerHTML = (hidden ? EYE_ICON : EYE_OFF_ICON) +
-    '<span>' + (hidden ? 'Show checked' : 'Hide checked') + '</span>';
+  const visSpan = document.createElement('span');
+  visSpan.textContent = hidden ? 'Show checked' : 'Hide checked';
+  btn.replaceChildren(parseSVG(hidden ? EYE_ICON : EYE_OFF_ICON), visSpan);
   localStorage.setItem('checkedHidden', hidden ? '1' : '0');
 }
 
@@ -1675,7 +1651,7 @@ function createQrCode() {
   const rows = sourceItems.map(i => (i.checked ? '- [x] ' : '- [ ] ') + i.text);
   const content = ['# ' + (list ? list.name : ''), ...rows].join('\n');
   const container = document.getElementById('qrCode');
-  container.innerHTML = '';
+  container.replaceChildren();
   let qr;
   try {
     const bytes = new TextEncoder().encode(content);
@@ -1712,7 +1688,7 @@ function createQrCode() {
   svg.appendChild(path);
   container.appendChild(svg);
   document.getElementById('qrText').textContent = content;
-  document.getElementById('qrModal').style.display = 'flex';
+  document.getElementById('qrModal').classList.add('open');
 }
 
 async function copyQrText() {
@@ -1720,15 +1696,10 @@ async function copyQrText() {
   if (!content) return;
   try {
     await navigator.clipboard.writeText(content);
+    showToast('Text copied to clipboard');
   } catch {
-    const ta = document.createElement('textarea');
-    ta.value = content;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    showToast('Could not copy to clipboard', 'warning');
   }
-  showToast('Text copied to clipboard');
 }
 
 async function copyQrCode() {
@@ -1775,7 +1746,7 @@ async function copyQrCode() {
   }
 }
 
-function showToast(message, type = 'success', iconOverride = null) {
+function showToast(message, type = 'success', iconOverride = null, onUndo = null) {
   let toast = document.getElementById('toast');
   if (!toast) {
     toast = document.createElement('div');
@@ -1783,16 +1754,29 @@ function showToast(message, type = 'success', iconOverride = null) {
     document.body.appendChild(toast);
   }
   toast.className = 'toast ' + (type === 'warning' ? 'warning' : '');
-  const icon = iconOverride || (type === 'warning' ? WARN_ICON : CHECK_ICON);
-  toast.innerHTML = icon + '<span>' + message + '</span>';
+  const iconStr = iconOverride || (type === 'warning' ? WARN_ICON : CHECK_ICON);
+  const toastSpan = document.createElement('span');
+  toastSpan.textContent = message;
+  toast.replaceChildren(parseSVG(iconStr), toastSpan);
+  if (onUndo) {
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'toast-undo';
+    undoBtn.textContent = 'Undo';
+    undoBtn.addEventListener('click', () => {
+      toast.classList.remove('show');
+      clearTimeout(toast._hideTimer);
+      onUndo();
+    });
+    toast.appendChild(undoBtn);
+  }
   toast.classList.add('show');
   clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), onUndo ? 5000 : 2200);
 }
 
 function closeQrCode() {
-  document.getElementById('qrModal').style.display = 'none';
-  document.getElementById('qrCode').innerHTML = '';
+  document.getElementById('qrModal').classList.remove('open');
+  document.getElementById('qrCode').replaceChildren();
   document.getElementById('qrText').textContent = '';
 }
 
@@ -1815,12 +1799,40 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') { closeQrCode(); closeMoveDropdown(); }
 });
 
+function initEventListeners() {
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('tabText').addEventListener('click', () => switchView('text'));
+  document.getElementById('tabChecklist').addEventListener('click', () => switchView('checklist'));
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('redoBtn').addEventListener('click', redo);
+  document.getElementById('menuBtn').addEventListener('click', toggleMenu);
+  document.getElementById('pasteBtn').addEventListener('click', () => { pasteFromClipboard(); closeMenu(); });
+  document.getElementById('toggleCheckboxBtn').addEventListener('click', () => { toggleCheckboxFormat(); closeMenu(); });
+  document.getElementById('sortBtn').addEventListener('click', toggleSort);
+  document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); closeMenu(); });
+  document.getElementById('copyAllListsBtn').addEventListener('click', () => { copyAllListsToClipboard(); closeMenu(); });
+  document.getElementById('importListsBtn').addEventListener('click', () => { importListsFromClipboard(); closeMenu(); });
+  document.getElementById('checkedToggle').addEventListener('click', () => { toggleCheckedVisibility(); closeMenu(); });
+  document.getElementById('qrCodeBtn').addEventListener('click', () => { createQrCode(); closeMenu(); });
+  document.getElementById('clearDoneBtn').addEventListener('click', () => { clearDone(); closeMenu(); });
+  document.getElementById('clearBtn').addEventListener('click', clearAction);
+  document.getElementById('addDirectionBtn').addEventListener('click', toggleAddDirection);
+  document.getElementById('addItemBtn').addEventListener('mousedown', e => e.preventDefault());
+  document.getElementById('addItemBtn').addEventListener('click', submitAddItem);
+  document.getElementById('qrModal').addEventListener('click', closeQrCode);
+  document.getElementById('qrModalContent').addEventListener('click', e => e.stopPropagation());
+  document.getElementById('copyQrCodeBtn').addEventListener('click', copyQrCode);
+  document.getElementById('copyQrTextBtn').addEventListener('click', copyQrText);
+  document.getElementById('closeQrBtn').addEventListener('click', closeQrCode);
+}
+
 function init() {
+  initEventListeners();
   applyCheckedVisibility(localStorage.getItem('checkedHidden') === '1');
   updateSortButton();
   updateAddDirectionBtn();
   const addItemBtn = document.getElementById('addItemBtn');
-  if (addItemBtn) addItemBtn.innerHTML = PLUS_ICON;
+  if (addItemBtn) addItemBtn.replaceChildren(parseSVG(PLUS_ICON));
   (function initTheme() {
     const saved = localStorage.getItem('theme');
     applyTheme(saved || 'dark');
@@ -1833,6 +1845,7 @@ function init() {
   (function initTextareaListeners() {
     const ta = document.getElementById('input');
     if (ta) {
+      ta.addEventListener('input', onTextareaInput);
       ta.addEventListener('blur', () => pushTextareaHistory(ta.value));
       ta.addEventListener('keyup', onTextareaCursorMove);
       ta.addEventListener('mouseup', onTextareaCursorMove);
@@ -1874,7 +1887,9 @@ function init() {
     }
   })();
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./serviceworker.js');
+    navigator.serviceWorker.register('./serviceworker.js').catch(err => {
+      console.error('Service worker registration failed:', err);
+    });
   }
 }
 

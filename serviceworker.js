@@ -1,4 +1,4 @@
-const CACHE = 'text-to-checklist-v27';
+const CACHE = 'text-to-checklist-v28';
 const ASSETS = [
   './',
   './index.html',
@@ -25,7 +25,14 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    caches.open(CACHE).then(cache => {
+      const networkFetch = fetch(e.request).then(response => {
+        if (response && response.ok) cache.put(e.request, response.clone());
+        return response;
+      }).catch(() => null);
+      return cache.match(e.request).then(cached => cached ?? networkFetch);
+    })
   );
 });
