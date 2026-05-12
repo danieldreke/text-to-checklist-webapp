@@ -777,7 +777,9 @@ function toggle(id) {
   item.checked = !item.checked;
   pushHistory();
   saveToStorage();
-  showToast(item.checked ? 'Marked done' : 'Marked undone', 'success', null, undo);
+  if (document.getElementById('list').classList.contains('hide-checked')) {
+    showToast(`"${item.text}" ${item.checked ? 'checked' : 'unchecked'}`, 'success', null, undo);
+  }
   const el = getItemEl(id);
   if (el) {
     el.classList.toggle('checked', item.checked);
