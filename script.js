@@ -175,6 +175,11 @@ function undoDeleteList() {
   renderListTabs();
   updateUndoRedo();
   showToast(`"${list.name}" restored`);
+  const restoredTab = document.querySelector(`.list-tab[data-id="${list.id}"]`);
+  if (restoredTab) {
+    restoredTab.classList.add('restored');
+    restoredTab.addEventListener('animationend', () => restoredTab.classList.remove('restored'), { once: true });
+  }
 }
 
 function showConfirm(message, onOk) {
@@ -653,9 +658,24 @@ function pushHistory() {
 function applyHistory() {
   if (editingId) stopEditInDOM(editingId);
   editingId = null;
+  const prevItems = items;
   items = history[historyIndex].map(i => ({ ...i }));
   saveToStorage();
   render();
+  const prevIds = new Set(prevItems.map(i => i.id));
+  const restoredIds = new Set();
+  items.filter(i => !prevIds.has(i.id)).forEach(i => restoredIds.add(i.id));
+  if (document.getElementById('list').classList.contains('hide-checked')) {
+    items.filter(i => !i.checked && prevItems.find(p => p.id === i.id && p.checked))
+      .forEach(i => restoredIds.add(i.id));
+  }
+  restoredIds.forEach(id => {
+    const el = getItemEl(id);
+    if (el) {
+      el.classList.add('restored');
+      el.addEventListener('animationend', () => el.classList.remove('restored'), { once: true });
+    }
+  });
   updateUndoRedo();
 }
 
@@ -1352,7 +1372,7 @@ function removeItem(id) {
   saveToStorage();
   getItemEl(id)?.remove();
   updateFooter();
-  if (item) showToast('Item removed: ' + item.text, 'warning', TRASH_ICON);
+  if (item) showToast('"' + item.text + '" removed', 'warning', TRASH_ICON, undo);
 }
 
 let moveDropdownEl = null;
