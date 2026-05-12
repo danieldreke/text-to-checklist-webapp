@@ -724,7 +724,7 @@ button.secondary.danger:hover:not(:disabled) {
 }
 
 .item.restored, .list-tab.restored {
-  animation: restore-flash 1.4s ease-out forwards;
+  animation: restore-flash 1s ease-out forwards;
 }
 
 .item {
