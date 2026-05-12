@@ -548,6 +548,12 @@ function renderListTabs() {
 
   const tabsScroller = document.createElement('div');
   tabsScroller.className = 'list-tabs-scroller';
+  tabsScroller.addEventListener('wheel', e => {
+    if (e.deltaY !== 0) {
+      e.preventDefault();
+      tabsScroller.scrollLeft += e.deltaY;
+    }
+  }, { passive: false });
   container.appendChild(tabsScroller);
 
   lists.forEach(list => {
@@ -771,6 +777,7 @@ function toggle(id) {
   item.checked = !item.checked;
   pushHistory();
   saveToStorage();
+  showToast(item.checked ? 'Marked done' : 'Marked undone', 'success', null, undo);
   const el = getItemEl(id);
   if (el) {
     el.classList.toggle('checked', item.checked);
@@ -1777,6 +1784,15 @@ function showToast(message, type = 'success', iconOverride = null, onUndo = null
     });
     toast.appendChild(undoBtn);
   }
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', () => {
+    toast.classList.remove('show');
+    clearTimeout(toast._hideTimer);
+  });
+  toast.appendChild(closeBtn);
   toast.classList.add('show');
   clearTimeout(toast._hideTimer);
   toast._hideTimer = setTimeout(() => toast.classList.remove('show'), onUndo ? TOAST_UNDO_DURATION : TOAST_DURATION);

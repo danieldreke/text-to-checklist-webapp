@@ -1077,6 +1077,25 @@ button.secondary.danger:hover:not(:disabled) {
 
 .toast.show {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.toast-close {
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.45rem;
+  margin-left: 0.4rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.toast-close:hover {
+  opacity: 1;
 }
 
 .toast svg {
