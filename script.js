@@ -950,7 +950,8 @@ function updateFooter() {
   const total = items.length;
   const checked = items.filter(i => i.checked).length;
   const remaining = total - checked;
-  footer.textContent = total === 0 ? '' : `${checked} of ${total} checked, ${remaining} remaining`;
+  const hiddenLabel = document.getElementById('list').classList.contains('hide-checked') ? ' (hidden)' : '';
+  footer.textContent = total === 0 ? '' : `${checked} of ${total} checked${hiddenLabel}, ${remaining} remaining`;
 }
 
 function render() {
@@ -1705,6 +1706,7 @@ function applyCheckedVisibility(hidden) {
   visSpan.textContent = hidden ? 'Show checked' : 'Hide checked';
   btn.replaceChildren(parseSVG(hidden ? EYE_ICON : EYE_OFF_ICON), visSpan);
   localStorage.setItem('checkedHidden', hidden ? '1' : '0');
+  updateFooter();
 }
 
 function toggleCheckedVisibility() {
