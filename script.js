@@ -1293,6 +1293,35 @@ function clearDone() {
   showToast(`${count} done item${count > 1 ? 's' : ''} removed`, 'warning', TRASH_ICON);
 }
 
+function positionFooterDropdown() {
+  const dropdown = document.getElementById('footerDropdown');
+  const btn = document.getElementById('footerMenuBtn');
+  if (!dropdown || !btn) return;
+  const rect = btn.getBoundingClientRect();
+  const padding = 8;
+  dropdown.style.bottom = (window.innerHeight - rect.top + padding) + 'px';
+  dropdown.style.top = 'auto';
+  dropdown.style.left = Math.max(padding, rect.left) + 'px';
+  dropdown.style.right = 'auto';
+}
+
+function toggleFooterMenu() {
+  const dropdown = document.getElementById('footerDropdown');
+  dropdown.classList.toggle('open');
+  if (dropdown.classList.contains('open')) {
+    positionFooterDropdown();
+    window.addEventListener('scroll', positionFooterDropdown);
+  } else {
+    window.removeEventListener('scroll', positionFooterDropdown);
+  }
+}
+
+function closeFooterMenu() {
+  const dropdown = document.getElementById('footerDropdown');
+  dropdown.classList.remove('open');
+  window.removeEventListener('scroll', positionFooterDropdown);
+}
+
 function positionDropdown() {
   const dropdown = document.getElementById('dropdown');
   const menuBtn = document.getElementById('menuBtn');
@@ -1342,7 +1371,7 @@ function updateClearBtn() {
 function clearAction() {
   if (currentView === 'text') clearText();
   else clearList();
-  closeMenu();
+  closeFooterMenu();
 }
 
 function clearText() {
@@ -1606,6 +1635,7 @@ const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.77 19.77 0 0 1 4.22-5.38"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.77 19.77 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const QR_ICON = '<svg viewBox="0 0 23 23" fill="currentColor" shape-rendering="crispEdges"><path d="M1,1h1v1h-1zM2,1h1v1h-1zM3,1h1v1h-1zM4,1h1v1h-1zM5,1h1v1h-1zM6,1h1v1h-1zM7,1h1v1h-1zM9,1h1v1h-1zM12,1h1v1h-1zM15,1h1v1h-1zM16,1h1v1h-1zM17,1h1v1h-1zM18,1h1v1h-1zM19,1h1v1h-1zM20,1h1v1h-1zM21,1h1v1h-1zM1,2h1v1h-1zM7,2h1v1h-1zM11,2h1v1h-1zM13,2h1v1h-1zM15,2h1v1h-1zM21,2h1v1h-1zM1,3h1v1h-1zM3,3h1v1h-1zM4,3h1v1h-1zM5,3h1v1h-1zM7,3h1v1h-1zM10,3h1v1h-1zM13,3h1v1h-1zM15,3h1v1h-1zM17,3h1v1h-1zM18,3h1v1h-1zM19,3h1v1h-1zM21,3h1v1h-1zM1,4h1v1h-1zM3,4h1v1h-1zM4,4h1v1h-1zM5,4h1v1h-1zM7,4h1v1h-1zM9,4h1v1h-1zM10,4h1v1h-1zM11,4h1v1h-1zM13,4h1v1h-1zM15,4h1v1h-1zM17,4h1v1h-1zM18,4h1v1h-1zM19,4h1v1h-1zM21,4h1v1h-1zM1,5h1v1h-1zM3,5h1v1h-1zM4,5h1v1h-1zM5,5h1v1h-1zM7,5h1v1h-1zM10,5h1v1h-1zM11,5h1v1h-1zM12,5h1v1h-1zM15,5h1v1h-1zM17,5h1v1h-1zM18,5h1v1h-1zM19,5h1v1h-1zM21,5h1v1h-1zM1,6h1v1h-1zM7,6h1v1h-1zM11,6h1v1h-1zM13,6h1v1h-1zM15,6h1v1h-1zM21,6h1v1h-1zM1,7h1v1h-1zM2,7h1v1h-1zM3,7h1v1h-1zM4,7h1v1h-1zM5,7h1v1h-1zM6,7h1v1h-1zM7,7h1v1h-1zM9,7h1v1h-1zM11,7h1v1h-1zM13,7h1v1h-1zM15,7h1v1h-1zM16,7h1v1h-1zM17,7h1v1h-1zM18,7h1v1h-1zM19,7h1v1h-1zM20,7h1v1h-1zM21,7h1v1h-1zM3,9h1v1h-1zM5,9h1v1h-1zM6,9h1v1h-1zM7,9h1v1h-1zM9,9h1v1h-1zM12,9h1v1h-1zM14,9h1v1h-1zM18,9h1v1h-1zM21,9h1v1h-1zM1,10h1v1h-1zM2,10h1v1h-1zM3,10h1v1h-1zM4,10h1v1h-1zM8,10h1v1h-1zM9,10h1v1h-1zM12,10h1v1h-1zM13,10h1v1h-1zM14,10h1v1h-1zM15,10h1v1h-1zM19,10h1v1h-1zM20,10h1v1h-1zM1,11h1v1h-1zM2,11h1v1h-1zM3,11h1v1h-1zM5,11h1v1h-1zM6,11h1v1h-1zM7,11h1v1h-1zM9,11h1v1h-1zM10,11h1v1h-1zM13,11h1v1h-1zM15,11h1v1h-1zM17,11h1v1h-1zM21,11h1v1h-1zM3,12h1v1h-1zM5,12h1v1h-1zM10,12h1v1h-1zM11,12h1v1h-1zM12,12h1v1h-1zM14,12h1v1h-1zM15,12h1v1h-1zM19,12h1v1h-1zM20,12h1v1h-1zM1,13h1v1h-1zM3,13h1v1h-1zM4,13h1v1h-1zM6,13h1v1h-1zM7,13h1v1h-1zM8,13h1v1h-1zM9,13h1v1h-1zM11,13h1v1h-1zM17,13h1v1h-1zM19,13h1v1h-1zM20,13h1v1h-1zM21,13h1v1h-1zM9,14h1v1h-1zM10,14h1v1h-1zM12,14h1v1h-1zM13,14h1v1h-1zM14,14h1v1h-1zM15,14h1v1h-1zM16,14h1v1h-1zM18,14h1v1h-1zM20,14h1v1h-1zM1,15h1v1h-1zM2,15h1v1h-1zM3,15h1v1h-1zM4,15h1v1h-1zM5,15h1v1h-1zM6,15h1v1h-1zM7,15h1v1h-1zM15,15h1v1h-1zM16,15h1v1h-1zM18,15h1v1h-1zM19,15h1v1h-1zM20,15h1v1h-1zM21,15h1v1h-1zM1,16h1v1h-1zM7,16h1v1h-1zM9,16h1v1h-1zM12,16h1v1h-1zM16,16h1v1h-1zM17,16h1v1h-1zM18,16h1v1h-1zM20,16h1v1h-1zM1,17h1v1h-1zM3,17h1v1h-1zM4,17h1v1h-1zM5,17h1v1h-1zM7,17h1v1h-1zM9,17h1v1h-1zM10,17h1v1h-1zM11,17h1v1h-1zM12,17h1v1h-1zM15,17h1v1h-1zM16,17h1v1h-1zM18,17h1v1h-1zM19,17h1v1h-1zM21,17h1v1h-1zM1,18h1v1h-1zM3,18h1v1h-1zM4,18h1v1h-1zM5,18h1v1h-1zM7,18h1v1h-1zM10,18h1v1h-1zM11,18h1v1h-1zM12,18h1v1h-1zM13,18h1v1h-1zM15,18h1v1h-1zM19,18h1v1h-1zM20,18h1v1h-1zM1,19h1v1h-1zM3,19h1v1h-1zM4,19h1v1h-1zM5,19h1v1h-1zM7,19h1v1h-1zM9,19h1v1h-1zM12,19h1v1h-1zM13,19h1v1h-1zM15,19h1v1h-1zM17,19h1v1h-1zM21,19h1v1h-1zM1,20h1v1h-1zM7,20h1v1h-1zM12,20h1v1h-1zM13,20h1v1h-1zM15,20h1v1h-1zM19,20h1v1h-1zM1,21h1v1h-1zM2,21h1v1h-1zM3,21h1v1h-1zM4,21h1v1h-1zM5,21h1v1h-1zM6,21h1v1h-1zM7,21h1v1h-1zM10,21h1v1h-1zM11,21h1v1h-1zM13,21h1v1h-1zM14,21h1v1h-1zM15,21h1v1h-1zM17,21h1v1h-1zM19,21h1v1h-1zM21,21h1v1h-1z"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
 const GRIP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
@@ -1833,20 +1863,21 @@ function closeQrCode() {
 document.addEventListener('click', (e) => {
   const container = document.getElementById('menuContainer');
   if (container && !container.contains(e.target)) closeMenu();
+  const footerContainer = document.getElementById('footerMenuContainer');
+  if (footerContainer && !footerContainer.contains(e.target)) closeFooterMenu();
   if (moveDropdownEl && !moveDropdownEl.contains(e.target) && !e.target.closest('.item-move')) closeMoveDropdown();
 });
 
 window.addEventListener('resize', () => {
-  if (document.getElementById('dropdown')?.classList.contains('open')) {
-    positionDropdown();
-  }
+  if (document.getElementById('dropdown')?.classList.contains('open')) positionDropdown();
+  if (document.getElementById('footerDropdown')?.classList.contains('open')) positionFooterDropdown();
 });
 
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
-  else if (e.key === 'Escape') { closeQrCode(); closeMoveDropdown(); }
+  else if (e.key === 'Escape') { closeQrCode(); closeMoveDropdown(); closeFooterMenu(); }
 });
 
 function initEventListeners() {
@@ -1856,15 +1887,16 @@ function initEventListeners() {
   document.getElementById('undoBtn').addEventListener('click', undo);
   document.getElementById('redoBtn').addEventListener('click', redo);
   document.getElementById('menuBtn').addEventListener('click', toggleMenu);
-  document.getElementById('pasteBtn').addEventListener('click', () => { pasteFromClipboard(); closeMenu(); });
-  document.getElementById('toggleCheckboxBtn').addEventListener('click', () => { toggleCheckboxFormat(); closeMenu(); });
-  document.getElementById('sortBtn').addEventListener('click', toggleSort);
-  document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); closeMenu(); });
+  document.getElementById('footerMenuBtn').addEventListener('click', toggleFooterMenu);
+  document.getElementById('pasteBtn').addEventListener('click', () => { pasteFromClipboard(); closeFooterMenu(); });
+  document.getElementById('toggleCheckboxBtn').addEventListener('click', () => { toggleCheckboxFormat(); closeFooterMenu(); });
+  document.getElementById('sortBtn').addEventListener('click', () => { toggleSort(); closeFooterMenu(); });
+  document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); closeFooterMenu(); });
   document.getElementById('copyAllListsBtn').addEventListener('click', () => { copyAllListsToClipboard(); closeMenu(); });
   document.getElementById('importListsBtn').addEventListener('click', () => { importListsFromClipboard(); closeMenu(); });
-  document.getElementById('checkedToggle').addEventListener('click', () => { toggleCheckedVisibility(); closeMenu(); });
-  document.getElementById('qrCodeBtn').addEventListener('click', () => { createQrCode(); closeMenu(); });
-  document.getElementById('clearDoneBtn').addEventListener('click', () => { clearDone(); closeMenu(); });
+  document.getElementById('checkedToggle').addEventListener('click', () => { toggleCheckedVisibility(); });
+  document.getElementById('qrCodeBtn').addEventListener('click', () => { createQrCode(); });
+  document.getElementById('clearDoneBtn').addEventListener('click', () => { clearDone(); closeFooterMenu(); });
   document.getElementById('clearBtn').addEventListener('click', clearAction);
   document.getElementById('addDirectionBtn').addEventListener('click', toggleAddDirection);
   document.getElementById('addItemBtn').addEventListener('mousedown', e => e.preventDefault());
@@ -1879,6 +1911,18 @@ function initEventListeners() {
 function init() {
   initEventListeners();
   applyCheckedVisibility(localStorage.getItem('checkedHidden') === '1');
+  const footerMenuBtn = document.getElementById('footerMenuBtn');
+  if (footerMenuBtn) {
+    const menuSpan = document.createElement('span');
+    menuSpan.textContent = 'More';
+    footerMenuBtn.replaceChildren(parseSVG('<svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>'), menuSpan);
+  }
+  const qrBtn = document.getElementById('qrCodeBtn');
+  if (qrBtn) {
+    const qrSpan = document.createElement('span');
+    qrSpan.textContent = 'QR code';
+    qrBtn.replaceChildren(parseSVG(QR_ICON), qrSpan);
+  }
   updateSortButton();
   updateAddDirectionBtn();
   const addItemBtn = document.getElementById('addItemBtn');

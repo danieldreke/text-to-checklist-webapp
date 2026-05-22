@@ -37,16 +37,8 @@
             <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>
           </button>
           <div class="dropdown" id="dropdown">
-            <button class="secondary" id="pasteBtn" data-text-only>Paste</button>
-            <button class="secondary" id="toggleCheckboxBtn" data-text-only>Toggle [ ]</button>
-            <button class="secondary theme-toggle" id="sortBtn">Sort A-Z</button>
-            <button class="secondary" id="copyListBtn">Copy list</button>
             <button class="secondary" id="copyAllListsBtn">Copy all lists</button>
             <button class="secondary" id="importListsBtn">Import list(s) from clipboard</button>
-            <button class="secondary theme-toggle" id="checkedToggle">Hide checked</button>
-            <button class="secondary" id="qrCodeBtn">Show QR code</button>
-            <button class="secondary danger" id="clearDoneBtn">Clear done</button>
-            <button class="secondary danger" id="clearBtn">Clear list</button>
           </div>
         </div>
       </div>
@@ -67,6 +59,21 @@
             <input type="text" id="addItemInput" class="add-item-input" placeholder="Add a new item..." />
             <button id="addItemBtn" class="add-item-btn" title="Add item"></button>
           </div>
+        </div>
+        <div class="list-controls-bar">
+          <button class="toolbar-btn" id="checkedToggle">Hide checked</button>
+          <div class="footer-menu-container" id="footerMenuContainer">
+            <button class="toolbar-btn" id="footerMenuBtn"></button>
+            <div class="dropdown" id="footerDropdown">
+              <button class="secondary" id="pasteBtn" data-text-only>Paste</button>
+              <button class="secondary" id="toggleCheckboxBtn" data-text-only>Toggle [ ]</button>
+              <button class="secondary theme-toggle" id="sortBtn">Sort A-Z</button>
+              <button class="secondary" id="copyListBtn">Copy list</button>
+              <button class="secondary danger" id="clearDoneBtn">Clear done</button>
+              <button class="secondary danger" id="clearBtn">Clear list</button>
+            </div>
+          </div>
+          <button class="toolbar-btn" id="qrCodeBtn"></button>
         </div>
         <div id="listFooter" class="list-footer"></div>
       </div>

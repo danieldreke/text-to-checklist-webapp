@@ -907,6 +907,46 @@ button.secondary.danger:hover:not(:disabled) {
   display: none;
 }
 
+.list-controls-bar {
+  display: flex;
+  align-items: stretch;
+  padding: 0.2rem 0.25rem;
+  border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.toolbar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 5rem;
+  padding: 0.35rem 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.65rem;
+  height: auto;
+}
+
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.toolbar-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+#qrCodeBtn {
+  margin-left: auto;
+}
+
 .list-footer {
   font-size: 0.875rem;
   color: var(--text);
