@@ -1224,7 +1224,12 @@ function addItemFromInput(text) {
   const trimmed = text.trim();
   if (!trimmed) return false;
 
-  if (items.some(i => i.text === trimmed)) {
+  const existing = items.find(i => i.text.toLowerCase() === trimmed.toLowerCase());
+  if (existing) {
+    if (existing.checked) {
+      toggle(existing.id);
+      return true;
+    }
     showToast('Duplicate item not allowed', 'warning');
     return false;
   }
