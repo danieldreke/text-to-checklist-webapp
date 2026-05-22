@@ -1651,6 +1651,7 @@ const PLUS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ARROW_UP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
 const ARROW_DOWN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
 const MOVE_ICON = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M806-440H320v-80h486l-62-62 56-58 160 160-160 160-56-58 62-62ZM600-600v-160H200v560h400v-160h80v160q0 33-23.5 56.5T600-120H200q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h400q33 0 56.5 23.5T680-760v160h-80Z"/></svg>';
+const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const ADD_DIR_UP_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,5 21,18 3,18" fill="transparent"/></svg>';
 const ADD_DIR_DOWN_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,19 21,6 3,6" fill="transparent"/></svg>';
 const LISTS_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>';
@@ -1898,7 +1899,7 @@ function initEventListeners() {
   document.getElementById('pasteBtn').addEventListener('click', () => { pasteFromClipboard(); closeFooterMenu(); });
   document.getElementById('toggleCheckboxBtn').addEventListener('click', () => { toggleCheckboxFormat(); closeFooterMenu(); });
   document.getElementById('sortBtn').addEventListener('click', () => { toggleSort(); closeFooterMenu(); });
-  document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); closeFooterMenu(); });
+  document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); });
   document.getElementById('copyAllListsBtn').addEventListener('click', () => { copyAllListsToClipboard(); closeMenu(); });
   document.getElementById('importListsBtn').addEventListener('click', () => { importListsFromClipboard(); closeMenu(); });
   document.getElementById('checkedToggle').addEventListener('click', () => { toggleCheckedVisibility(); });
@@ -1923,6 +1924,12 @@ function init() {
     const menuSpan = document.createElement('span');
     menuSpan.textContent = 'More';
     footerMenuBtn.replaceChildren(parseSVG('<svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>'), menuSpan);
+  }
+  const copyListBtn = document.getElementById('copyListBtn');
+  if (copyListBtn) {
+    const copySpan = document.createElement('span');
+    copySpan.textContent = 'Copy list';
+    copyListBtn.replaceChildren(parseSVG(COPY_ICON), copySpan);
   }
   const qrBtn = document.getElementById('qrCodeBtn');
   if (qrBtn) {

@@ -943,7 +943,7 @@ button.secondary.danger:hover:not(:disabled) {
   height: 1.25rem;
 }
 
-#qrCodeBtn {
+#footerMenuContainer {
   margin-left: auto;
 }
 
