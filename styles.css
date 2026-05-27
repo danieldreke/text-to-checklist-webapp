@@ -14,6 +14,7 @@
   --accent-hover: #111;
   --accent-text: #fff;
   --button-height: 2rem;
+  --toolbar-btn-padding: 0.65rem;
   --color-green: #18a84d;
   --color-green-text: #2e7d32;
   --color-green-border: #81c784;
@@ -921,8 +922,7 @@ button.secondary.danger:hover:not(:disabled) {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  width: 4.2rem;
-  padding: 0.35rem 0;
+  padding: 0.35rem var(--toolbar-btn-padding);
   background: transparent;
   border: none;
   border-radius: 6px;

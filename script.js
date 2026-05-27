@@ -957,9 +957,9 @@ function updateFooter() {
   if (!footer) return;
   const total = items.length;
   const checked = items.filter(i => i.checked).length;
-  const remaining = total - checked;
+  const unchecked = total - checked;
   const hiddenLabel = document.getElementById('list').classList.contains('hide-checked') ? ' (hidden)' : '';
-  footer.textContent = total === 0 ? '' : `${checked} of ${total} checked${hiddenLabel}, ${remaining} remaining`;
+  footer.textContent = total === 0 ? '' : `${checked} of ${total} checked${hiddenLabel}, ${unchecked} unchecked`;
 }
 
 function render() {
