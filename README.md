@@ -12,10 +12,13 @@ Open [Text to checklist](https://danieldreke.github.io/text-to-checklist-webapp/
 - Check/Uncheck items and reorder via drag & drop
 - Copy checklist to another device via QR code
 - Add, edit and remove items
+- Multiple named lists — create, rename, delete, reorder, and move items between lists
 - Undo / Redo buttons and support for `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`
-- Copy the list as plain text
+- Copy the current list or all lists as plain text
+- Import lists from clipboard
 - Hide/show checked items
-- Sort items A–Z
+- Clear all checked items
+- Sort items A–Z / Z–A
 - Installable as a PWA — works offline
 
 ## Text format
@@ -43,4 +46,7 @@ The following keys are stored in `localStorage`:
 - `theme` — `"light"` or `"dark"`
 - `currentView` — `"text"` or `"checklist"`
 - `checkedHidden` — `"0"` or `"1"`
-- `checklist-items` — JSON array of the current list items
+- `checklist-lists` — JSON array of all lists with their items and checked state
+- `checklist-active` — ID of the currently active list
+- `checklist-add-row` — insert position for new items (null = append)
+- `addItemAbove` — `"0"` or `"1"` — whether new items are added above or below the add row

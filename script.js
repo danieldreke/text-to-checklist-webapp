@@ -906,9 +906,7 @@ function loadFromStorage() {
     if (savedLists) {
       lists = JSON.parse(savedLists);
     } else {
-      const oldItems = localStorage.getItem('checklist-items');
-      const id = generateId();
-      lists = [{ id, name: 'Today', items: oldItems ? JSON.parse(oldItems) : [] }];
+      lists = [{ id: generateId(), name: 'Today', items: [] }];
     }
     if (!lists.length) {
       lists = [{ id: generateId(), name: 'Today', items: [] }];
