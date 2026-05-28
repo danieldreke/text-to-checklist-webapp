@@ -608,6 +608,28 @@ function renderListTabs() {
     positionDropdown();
     window.addEventListener('scroll', positionDropdown);
   }
+
+  requestAnimationFrame(() => {
+    const activeTab = tabsScroller.querySelector('.list-tab.active');
+    if (!activeTab) return;
+    const tabs = Array.from(tabsScroller.querySelectorAll('.list-tab'));
+    const n = tabs.length;
+    const i = tabs.indexOf(activeTab);
+    const maxScroll = tabsScroller.scrollWidth - tabsScroller.clientWidth;
+    if (maxScroll <= 0) return;
+    const scrollerLeft = tabsScroller.getBoundingClientRect().left;
+    if (i === 0) {
+      tabsScroller.scrollLeft = 0;
+    } else if (i === n - 1) {
+      tabsScroller.scrollLeft = maxScroll;
+    } else if (i <= Math.floor(n / 2)) {
+      tabsScroller.scrollLeft = tabs[i - 1].getBoundingClientRect().left - scrollerLeft;
+    } else {
+      const succ = tabs[i + 1];
+      const succRect = succ.getBoundingClientRect();
+      tabsScroller.scrollLeft = Math.max(0, Math.min(succRect.right - scrollerLeft - tabsScroller.clientWidth, maxScroll));
+    }
+  });
 }
 
 function initTextareaHistory() {
