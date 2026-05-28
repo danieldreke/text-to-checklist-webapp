@@ -433,7 +433,8 @@ h1 {
   text-align: left;
 }
 
-.list-menu-edit-btn {
+.list-menu-edit-btn,
+.list-menu-pos-btn {
   height: var(--button-height);
   width: auto;
   padding: 0 0.3rem;
@@ -449,7 +450,8 @@ h1 {
   flex-shrink: 0;
 }
 
-.list-menu-edit-btn:hover:not(:disabled) {
+.list-menu-edit-btn:hover:not(:disabled),
+.list-menu-pos-btn:hover:not(:disabled) {
   background: var(--surface-hover);
   color: var(--text);
 }
@@ -457,6 +459,15 @@ h1 {
 .list-menu-edit-btn svg {
   width: 0.8rem;
   height: 0.8rem;
+}
+
+.list-menu-pos-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.list-menu-pos-btn {
+  padding: 0 0.1rem;
 }
 
 .list-menu-handle {

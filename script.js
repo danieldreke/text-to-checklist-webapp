@@ -345,6 +345,22 @@ function commitTabReorder() {
   }
 }
 
+function moveListToPosition(id, position) {
+  const idx = lists.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  const [list] = lists.splice(idx, 1);
+  if (position === 'top') {
+    lists.unshift(list);
+  } else if (position === 'bottom') {
+    lists.push(list);
+  } else {
+    lists.splice(Math.floor(lists.length / 2), 0, list);
+  }
+  pushListOrderHistory();
+  saveToStorage();
+  renderListTabs();
+}
+
 let dropdownNeedsRebuild = true;
 
 function buildDropdownContent(dropdown) {
@@ -397,6 +413,23 @@ function buildDropdownContent(dropdown) {
 
     item.appendChild(nameWrap);
 
+    [
+      { pos: 'top', icon: ALIGN_TOP_ICON, title: 'Move to top' },
+      // { pos: 'middle', icon: ALIGN_MIDDLE_ICON, title: 'Move to middle' },
+      { pos: 'bottom', icon: ALIGN_BOTTOM_ICON, title: 'Move to bottom' },
+    ].forEach(({ pos, icon, title }) => {
+      const btn = document.createElement('button');
+      btn.className = 'list-menu-pos-btn';
+      btn.appendChild(parseSVG(icon));
+      btn.title = title;
+      btn.setAttribute('aria-label', title);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moveListToPosition(list.id, pos);
+      });
+      item.appendChild(btn);
+    });
+
     const removeBtn = document.createElement('button');
     removeBtn.className = 'item-remove';
     removeBtn.appendChild(parseSVG(TRASH_ICON));
@@ -411,7 +444,11 @@ function buildDropdownContent(dropdown) {
 
     item.addEventListener('click', (e) => {
       if (!tabTouchDragging && !document.body.classList.contains('dragging-list')) {
-        switchList(list.id);
+        if (list.id === activeListId) {
+          dropdown.classList.remove('open');
+        } else {
+          switchList(list.id);
+        }
       }
     });
     item.addEventListener('dragover', (e) => {
@@ -1630,7 +1667,7 @@ async function importListsFromClipboard() {
       lastId = existing.id;
     } else {
       const id = generateId();
-      lists.push({ id, name: importedList.name, items: newItems });
+      lists.unshift({ id, name: importedList.name, items: newItems });
       lastId = id;
     }
   }
@@ -1687,6 +1724,9 @@ const REDO_ICON = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="
 const ADD_DIR_UP_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,5 21,18 3,18" fill="transparent"/></svg>';
 const ADD_DIR_DOWN_ICON = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,19 21,6 3,6" fill="transparent"/></svg>';
 const LISTS_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>';
+const ALIGN_TOP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 11h3v10h2V11h3l-4-4-4 4zM4 3v2h16V3H4z"/></svg>';
+const ALIGN_MIDDLE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z"/></svg>';
+const ALIGN_BOTTOM_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 13h-3V3h-2v10H8l4 4 4-4zM4 19v2h16v-2H4z"/></svg>';
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
