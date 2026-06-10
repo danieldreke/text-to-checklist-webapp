@@ -870,6 +870,7 @@ button.secondary.danger:hover:not(:disabled) {
   width: var(--button-height);
   height: var(--button-height);
   padding: 0;
+  margin-left: -0.5rem;
   line-height: 0;
   background: transparent;
   color: var(--color-danger);
