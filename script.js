@@ -1583,8 +1583,15 @@ function openItemMenu(itemId, btnEl) {
     moveListBtn.className = 'secondary';
     moveListBtn.appendChild(parseSVG(MOVE_ICON));
     moveListBtn.appendChild(document.createTextNode('Move to list'));
-    moveListBtn.addEventListener('click', (e) => { e.stopPropagation(); closeItemMenu(); openMoveDropdown(itemId, btnEl); });
+    moveListBtn.addEventListener('click', (e) => { e.stopPropagation(); closeItemMenu(); openMoveDropdown(itemId, btnEl, 'move'); });
     el.appendChild(moveListBtn);
+
+    const copyListBtn = document.createElement('button');
+    copyListBtn.className = 'secondary';
+    copyListBtn.appendChild(parseSVG(COPY_ICON));
+    copyListBtn.appendChild(document.createTextNode('Copy to list'));
+    copyListBtn.addEventListener('click', (e) => { e.stopPropagation(); closeItemMenu(); openMoveDropdown(itemId, btnEl, 'copy'); });
+    el.appendChild(copyListBtn);
   }
 
   document.body.appendChild(el);
@@ -1613,7 +1620,7 @@ function moveItemToPosition(id, position) {
 let moveDropdownEl = null;
 let moveDropdownItemId = null;
 
-function openMoveDropdown(itemId, btnEl) {
+function openMoveDropdown(itemId, btnEl, mode = 'move') {
   const otherLists = lists.filter(l => l.id !== activeListId);
   if (otherLists.length === 0) return;
 
@@ -1628,13 +1635,17 @@ function openMoveDropdown(itemId, btnEl) {
   el.className = 'move-dropdown';
   const title = document.createElement('div');
   title.className = 'move-dropdown-title';
-  title.textContent = 'Move to list:';
+  title.textContent = mode === 'copy' ? 'Copy to list:' : 'Move to list:';
   el.appendChild(title);
   otherLists.forEach(list => {
     const btn = document.createElement('button');
     btn.className = 'secondary';
     btn.textContent = list.name;
-    btn.addEventListener('click', () => { moveItemToList(itemId, list.id); closeMoveDropdown(); });
+    btn.addEventListener('click', () => {
+      if (mode === 'copy') copyItemToList(itemId, list.id);
+      else moveItemToList(itemId, list.id);
+      closeMoveDropdown();
+    });
     el.appendChild(btn);
   });
   document.body.appendChild(el);
@@ -1690,6 +1701,28 @@ function moveItemToList(itemId, targetListId) {
       }
       saveToStorage();
     }
+  });
+}
+
+function copyItemToList(itemId, targetListId) {
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+  const targetList = lists.find(l => l.id === targetListId);
+  if (!targetList) return;
+
+  const copiedItem = { ...item, id: 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), originalIndex: targetList.items.length };
+  targetList.items.push(copiedItem);
+  targetList.items.forEach((i, idx) => { i.originalIndex = idx; });
+
+  saveToStorage();
+
+  showToast(`"${item.text}" copied to "${targetList.name}"`, 'success', COPY_ICON, () => {
+    const tgt = lists.find(l => l.id === targetListId);
+    if (tgt) {
+      tgt.items = tgt.items.filter(i => i.id !== copiedItem.id);
+      tgt.items.forEach((i, idx) => { i.originalIndex = idx; });
+    }
+    saveToStorage();
   });
 }
 
