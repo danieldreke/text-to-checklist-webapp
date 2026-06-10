@@ -1100,13 +1100,13 @@ function renderItem(item) {
 
   div.appendChild(wrap);
 
-  const moveBtn = document.createElement('button');
-  moveBtn.className = 'item-move';
-  moveBtn.title = 'Move to list';
-  moveBtn.setAttribute('aria-label', 'Move to list');
-  moveBtn.appendChild(parseSVG(MOVE_ICON));
-  moveBtn.addEventListener('click', (e) => { e.stopPropagation(); openMoveDropdown(item.id, moveBtn); });
-  div.appendChild(moveBtn);
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'item-menu';
+  menuBtn.title = 'Item menu';
+  menuBtn.setAttribute('aria-label', 'Item menu');
+  menuBtn.appendChild(parseSVG(DOTS_ICON));
+  menuBtn.addEventListener('click', (e) => { e.stopPropagation(); openItemMenu(item.id, menuBtn); });
+  div.appendChild(menuBtn);
 
   const removeBtn = document.createElement('button');
   removeBtn.className = 'item-remove';
@@ -1532,6 +1532,84 @@ function removeItem(id) {
   if (item) showToast('"' + item.text + '" removed', 'warning', TRASH_ICON, undoItems);
 }
 
+function positionFloatingMenu(el, btnEl) {
+  const rect = btnEl.getBoundingClientRect();
+  const pad = 8;
+  el.style.right = Math.max(pad, window.innerWidth - rect.right) + 'px';
+  const spaceBelow = window.innerHeight - rect.bottom - pad;
+  const spaceAbove = rect.top - pad;
+  if (spaceAbove > spaceBelow) {
+    el.style.top = 'auto';
+    el.style.bottom = (window.innerHeight - rect.top + pad) + 'px';
+    el.style.maxHeight = spaceAbove + 'px';
+  } else {
+    el.style.bottom = 'auto';
+    el.style.top = (rect.bottom + pad) + 'px';
+    el.style.maxHeight = spaceBelow + 'px';
+  }
+}
+
+let itemMenuEl = null;
+let itemMenuItemId = null;
+
+function openItemMenu(itemId, btnEl) {
+  if (itemMenuEl && itemMenuItemId === itemId) {
+    closeItemMenu();
+    return;
+  }
+  closeItemMenu();
+  closeMoveDropdown();
+
+  itemMenuItemId = itemId;
+  const el = document.createElement('div');
+  el.className = 'move-dropdown item-menu-dropdown';
+
+  const topBtn = document.createElement('button');
+  topBtn.className = 'secondary';
+  topBtn.appendChild(parseSVG(ALIGN_TOP_ICON));
+  topBtn.appendChild(document.createTextNode('Move to top'));
+  topBtn.addEventListener('click', () => { moveItemToPosition(itemId, 'top'); closeItemMenu(); });
+  el.appendChild(topBtn);
+
+  const bottomBtn = document.createElement('button');
+  bottomBtn.className = 'secondary';
+  bottomBtn.appendChild(parseSVG(ALIGN_BOTTOM_ICON));
+  bottomBtn.appendChild(document.createTextNode('Move to bottom'));
+  bottomBtn.addEventListener('click', () => { moveItemToPosition(itemId, 'bottom'); closeItemMenu(); });
+  el.appendChild(bottomBtn);
+
+  if (lists.length > 1) {
+    const moveListBtn = document.createElement('button');
+    moveListBtn.className = 'secondary';
+    moveListBtn.appendChild(parseSVG(MOVE_ICON));
+    moveListBtn.appendChild(document.createTextNode('Move to list'));
+    moveListBtn.addEventListener('click', (e) => { e.stopPropagation(); closeItemMenu(); openMoveDropdown(itemId, btnEl); });
+    el.appendChild(moveListBtn);
+  }
+
+  document.body.appendChild(el);
+  itemMenuEl = el;
+  positionFloatingMenu(el, btnEl);
+}
+
+function closeItemMenu() {
+  itemMenuEl?.remove();
+  itemMenuEl = null;
+  itemMenuItemId = null;
+}
+
+function moveItemToPosition(id, position) {
+  const idx = items.findIndex(i => i.id === id);
+  if (idx === -1) return;
+  const [item] = items.splice(idx, 1);
+  if (position === 'top') items.unshift(item);
+  else items.push(item);
+  reindex();
+  pushHistory();
+  saveToStorage();
+  render();
+}
+
 let moveDropdownEl = null;
 let moveDropdownItemId = null;
 
@@ -1561,21 +1639,7 @@ function openMoveDropdown(itemId, btnEl) {
   });
   document.body.appendChild(el);
   moveDropdownEl = el;
-
-  const rect = btnEl.getBoundingClientRect();
-  const pad = 8;
-  el.style.right = Math.max(pad, window.innerWidth - rect.right) + 'px';
-  const spaceBelow = window.innerHeight - rect.bottom - pad;
-  const spaceAbove = rect.top - pad;
-  if (spaceAbove > spaceBelow) {
-    el.style.top = 'auto';
-    el.style.bottom = (window.innerHeight - rect.top + pad) + 'px';
-    el.style.maxHeight = spaceAbove + 'px';
-  } else {
-    el.style.bottom = 'auto';
-    el.style.top = (rect.bottom + pad) + 'px';
-    el.style.maxHeight = spaceBelow + 'px';
-  }
+  positionFloatingMenu(el, btnEl);
 }
 
 function closeMoveDropdown() {
@@ -1778,6 +1842,7 @@ const LISTS_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" heig
 const ALIGN_TOP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 11h3v10h2V11h3l-4-4-4 4zM4 3v2h16V3H4z"/></svg>';
 const ALIGN_MIDDLE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z"/></svg>';
 const ALIGN_BOTTOM_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 13h-3V3h-2v10H8l4 4 4-4zM4 19v2h16v-2H4z"/></svg>';
+const DOTS_ICON = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>';
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -1996,7 +2061,8 @@ document.addEventListener('click', (e) => {
   if (container && !container.contains(e.target)) closeMenu();
   const footerContainer = document.getElementById('footerMenuContainer');
   if (footerContainer && !footerContainer.contains(e.target)) closeFooterMenu();
-  if (moveDropdownEl && !moveDropdownEl.contains(e.target) && !e.target.closest('.item-move')) closeMoveDropdown();
+  if (moveDropdownEl && !moveDropdownEl.contains(e.target) && !e.target.closest('.item-menu')) closeMoveDropdown();
+  if (itemMenuEl && !itemMenuEl.contains(e.target) && !e.target.closest('.item-menu')) closeItemMenu();
 });
 
 window.addEventListener('resize', () => {
@@ -2008,7 +2074,7 @@ document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoItems(); }
   else if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoItems(); }
-  else if (e.key === 'Escape') { closeQrCode(); closeMoveDropdown(); closeFooterMenu(); }
+  else if (e.key === 'Escape') { closeQrCode(); closeMoveDropdown(); closeItemMenu(); closeFooterMenu(); }
 });
 
 function initEventListeners() {
