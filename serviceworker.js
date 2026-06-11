@@ -1,4 +1,4 @@
-const CACHE = 'text-to-checklist-v0.47';
+const CACHE = 'text-to-checklist-v0.48  ';
 const ASSETS = [
   './',
   './index.html',

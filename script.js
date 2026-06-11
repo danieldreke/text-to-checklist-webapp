@@ -17,6 +17,8 @@ let deletedListUndo = null;
 let listOrderHistory = [[]];
 let listOrderHistoryIndex = 0;
 
+let showArchivedLists = localStorage.getItem('checklist-show-archived') === '1';
+
 let draggingTabEl = null;
 let tabTouchStartX = 0;
 let tabTouchDragging = false;
@@ -104,6 +106,31 @@ function switchList(id) {
   renderListTabs();
 }
 
+function updateArchiveListBtn() {
+  const btn = document.getElementById('archiveListBtn');
+  if (!btn) return;
+  const list = lists.find(l => l.id === activeListId);
+  const archived = !!list?.archived;
+  btn.textContent = archived ? 'Unarchive list' : 'Archive list';
+  btn.disabled = !archived && lists.filter(l => !l.archived).length <= 1;
+}
+
+function toggleArchiveActiveList() {
+  const list = lists.find(l => l.id === activeListId);
+  if (!list) return;
+  if (!list.archived && lists.filter(l => !l.archived).length <= 1) return;
+  list.archived = !list.archived;
+  if (list.archived) {
+    saveCurrentState();
+    const next = lists.find(l => !l.archived);
+    activeListId = next.id;
+    loadActiveListState();
+    localStorage.setItem('checklist-active', activeListId);
+  }
+  saveToStorage();
+  renderListTabs();
+}
+
 function uniqueDefaultListName() {
   const existing = new Set(lists.map(l => l.name.toLowerCase()));
   let n = lists.length + 1;
@@ -117,7 +144,7 @@ function addList() {
   const id = generateId();
   pendingListId = id;
   pendingListPrevActiveId = activeListId;
-  lists.unshift({ id, name: uniqueDefaultListName(), items: [] });
+  lists.unshift({ id, name: uniqueDefaultListName(), items: [], archived: false });
   activeListId = id;
   items = [];
   history = [[]];
@@ -335,7 +362,9 @@ function commitTabReorder() {
   const dropdown = document.querySelector('.list-menu-dropdown');
   if (!dropdown) return;
   const items = Array.from(dropdown.querySelectorAll('.list-menu-item'));
-  const idOrder = items.map(i => i.dataset.id);
+  const shownIds = items.map(i => i.dataset.id);
+  let cursor = 0;
+  const idOrder = lists.map(l => shownIds.includes(l.id) ? shownIds[cursor++] : l.id);
   const changed = idOrder.some((id, idx) => lists[idx]?.id !== id);
   if (changed) {
     applyListOrder(idOrder);
@@ -365,7 +394,28 @@ let dropdownNeedsRebuild = true;
 
 function buildDropdownContent(dropdown) {
   dropdown.replaceChildren();
-  lists.forEach(list => {
+
+  const archiveToggle = document.createElement('button');
+  archiveToggle.className = 'secondary theme-toggle list-menu-toggle' + (showArchivedLists ? ' active' : '');
+  const archivedCount = lists.filter(l => l.archived).length;
+  const chevronLeft = parseSVG(CHEVRON_LEFT_ICON);
+  chevronLeft.style.visibility = showArchivedLists ? 'visible' : 'hidden';
+  archiveToggle.appendChild(chevronLeft);
+  archiveToggle.appendChild(parseSVG(ARCHIVE_ICON));
+  archiveToggle.appendChild(document.createTextNode(`Archived Lists (${archivedCount})`));
+  const chevronRight = parseSVG(CHEVRON_RIGHT_ICON);
+  chevronRight.style.visibility = showArchivedLists ? 'hidden' : 'visible';
+  archiveToggle.appendChild(chevronRight);
+  archiveToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showArchivedLists = !showArchivedLists;
+    localStorage.setItem('checklist-show-archived', showArchivedLists ? '1' : '0');
+    dropdownNeedsRebuild = true;
+    buildDropdownContent(dropdown);
+  });
+  dropdown.appendChild(archiveToggle);
+
+  lists.filter(list => !!list.archived === showArchivedLists).forEach(list => {
     const item = document.createElement('button');
     item.className = 'secondary list-menu-item' + (list.id === activeListId ? ' active' : '');
     item.dataset.id = list.id;
@@ -514,7 +564,8 @@ function renderListTabs() {
   const wasDropdownOpen = document.querySelector('.list-menu-dropdown')?.classList.contains('open') ?? false;
   container.replaceChildren();
   dropdownNeedsRebuild = true;
-  document.getElementById('list')?.classList.toggle('single-list', lists.length < 2);
+  document.getElementById('list')?.classList.toggle('single-list', lists.filter(l => !l.archived).length < 2);
+  updateArchiveListBtn();
 
   const listMenuWrapper = document.createElement('div');
   listMenuWrapper.className = 'list-menu-wrapper';
@@ -602,7 +653,7 @@ function renderListTabs() {
   }, { passive: false });
   container.appendChild(tabsScroller);
 
-  lists.forEach(list => {
+  lists.filter(list => !list.archived).forEach(list => {
     const tab = document.createElement('div');
     tab.className = 'list-tab' + (list.id === activeListId && renamingListId !== list.id ? ' active' : '');
     tab.dataset.id = list.id;
@@ -1876,6 +1927,9 @@ const ALIGN_TOP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8
 const ALIGN_MIDDLE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z"/></svg>';
 const ALIGN_BOTTOM_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 13h-3V3h-2v10H8l4 4 4-4zM4 19v2h16v-2H4z"/></svg>';
 const DOTS_ICON = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg>';
+const ARCHIVE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+const CHEVRON_LEFT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+const CHEVRON_RIGHT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -2131,6 +2185,7 @@ function initEventListeners() {
   document.getElementById('checkAllBtn').addEventListener('click', () => { checkAll(); closeFooterMenu(); });
   document.getElementById('uncheckAllBtn').addEventListener('click', () => { uncheckAll(); closeFooterMenu(); });
   document.getElementById('clearDoneBtn').addEventListener('click', () => { clearDone(); closeFooterMenu(); });
+  document.getElementById('archiveListBtn').addEventListener('click', () => { toggleArchiveActiveList(); closeFooterMenu(); });
   document.getElementById('clearBtn').addEventListener('click', clearAction);
   document.getElementById('addDirectionBtn').addEventListener('click', toggleAddDirection);
   document.getElementById('addItemBtn').addEventListener('mousedown', e => e.preventDefault());

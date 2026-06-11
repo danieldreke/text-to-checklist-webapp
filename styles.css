@@ -344,6 +344,20 @@ h1 {
   display: flex;
 }
 
+.list-menu-toggle {
+  flex-shrink: 0;
+}
+
+.list-menu-toggle.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+button.list-menu-toggle.active:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: var(--accent-text);
+}
+
 .list-menu-item {
   display: flex;
   align-items: center;
