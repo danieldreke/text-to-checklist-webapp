@@ -53,13 +53,23 @@ function saveCurrentListItems() {
 
 function parseTextareaLines(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
-  const seen = new Set();
+  const seen = new Map();
   let duplicates = 0;
+  const uncheckedDuplicates = [];
   const unique = [];
   lines.forEach(line => {
     const parsed = parseLine(line);
-    if (seen.has(parsed.text)) { duplicates++; return; }
-    seen.add(parsed.text);
+    if (seen.has(parsed.text)) {
+      const existing = unique[seen.get(parsed.text)];
+      if (existing.checked && !parsed.checked) {
+        existing.checked = false;
+        uncheckedDuplicates.push(existing.text);
+      } else {
+        duplicates++;
+      }
+      return;
+    }
+    seen.set(parsed.text, unique.length);
     unique.push(parsed);
   });
   return {
@@ -70,6 +80,7 @@ function parseTextareaLines(text) {
       checked: parsed.checked,
     })),
     duplicates,
+    uncheckedDuplicates,
   };
 }
 
@@ -915,14 +926,23 @@ function switchView(view) {
 }
 
 function parseTextToList() {
-  const { items: parsed, duplicates } = parseTextareaLines(document.getElementById('input').value);
+  const { items: parsed, duplicates, uncheckedDuplicates } = parseTextareaLines(document.getElementById('input').value);
   if (editingId) stopEditInDOM(editingId);
   editingId = null;
   items = parsed;
   saveToStorage();
   render();
+  const messages = [];
   if (duplicates > 0) {
-    showToast(`${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped`, 'warning');
+    messages.push(`${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped`);
+  }
+  if (uncheckedDuplicates.length === 1) {
+    messages.push(`"${uncheckedDuplicates[0]}" unchecked`);
+  } else if (uncheckedDuplicates.length > 1) {
+    messages.push(`${uncheckedDuplicates.length} items unchecked`);
+  }
+  if (messages.length > 0) {
+    showToast(messages.join(', '), 'warning');
   }
 }
 
