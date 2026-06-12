@@ -1,8 +1,10 @@
 let items = [];
 let history = [[]];
+let historyActions = [null];
 let historyIndex = 0;
 
 let textareaHistory = [''];
+let textareaHistoryActions = [null];
 let textareaHistoryIndex = 0;
 let textareaActiveLine = 1;
 let showUncheckedBrackets = false;
@@ -85,6 +87,7 @@ function loadActiveListState() {
   pendingId = null;
   items = list ? list.items.map(i => ({ ...i })) : [];
   history = [items.map(i => ({ ...i }))];
+  historyActions = [null];
   historyIndex = 0;
   if (currentView === 'text') {
     const ta = document.getElementById('input');
@@ -148,6 +151,7 @@ function addList() {
   activeListId = id;
   items = [];
   history = [[]];
+  historyActions = [null];
   historyIndex = 0;
   if (editingId) stopEditInDOM(editingId);
   editingId = null;
@@ -723,14 +727,17 @@ function renderListTabs() {
 function initTextareaHistory() {
   const val = document.getElementById('input').value;
   textareaHistory = [val];
+  textareaHistoryActions = [null];
   textareaHistoryIndex = 0;
   textareaActiveLine = 1;
 }
 
-function pushTextareaHistory(val) {
+function pushTextareaHistory(val, action = null) {
   if (val === textareaHistory[textareaHistoryIndex]) return;
   textareaHistory = textareaHistory.slice(0, textareaHistoryIndex + 1);
   textareaHistory.push(val);
+  textareaHistoryActions = textareaHistoryActions.slice(0, textareaHistoryIndex + 1);
+  textareaHistoryActions.push(action);
   textareaHistoryIndex = textareaHistory.length - 1;
   updateUndoRedo();
 }
@@ -762,9 +769,11 @@ function snapshot() {
   return items.map(i => ({ ...i }));
 }
 
-function pushHistory() {
+function pushHistory(action = null) {
   history = history.slice(0, historyIndex + 1);
   history.push(snapshot());
+  historyActions = historyActions.slice(0, historyIndex + 1);
+  historyActions.push(action);
   historyIndex = history.length - 1;
   updateUndoRedo();
 }
@@ -798,15 +807,19 @@ function applyHistory() {
 function undoItems() {
   if (currentView === 'text') {
     if (textareaHistoryIndex > 0) {
+      const undoneAction = textareaHistoryActions[textareaHistoryIndex];
       textareaHistoryIndex--;
       document.getElementById('input').value = textareaHistory[textareaHistoryIndex];
       updateUndoRedo();
+      if (undoneAction === 'reverse') showToast('Reverse undone');
     }
     return;
   }
   if (historyIndex > 0) {
+    const undoneAction = historyActions[historyIndex];
     historyIndex--;
     applyHistory();
+    if (undoneAction === 'reverse') showToast('Reverse undone');
   }
 }
 
@@ -816,12 +829,14 @@ function redoItems() {
       textareaHistoryIndex++;
       document.getElementById('input').value = textareaHistory[textareaHistoryIndex];
       updateUndoRedo();
+      if (textareaHistoryActions[textareaHistoryIndex] === 'reverse') showToast('Reversed item order');
     }
     return;
   }
   if (historyIndex < history.length - 1) {
     historyIndex++;
     applyHistory();
+    if (historyActions[historyIndex] === 'reverse') showToast('Reversed item order');
   }
 }
 
@@ -1039,6 +1054,7 @@ function loadFromStorage() {
     const activeList = getActiveList();
     items = activeList ? activeList.items.map(i => ({ ...i })) : [];
     history = [items.map(i => ({ ...i }))];
+    historyActions = [null];
     historyIndex = 0;
     editingId = null;
     pendingId = null;
@@ -1980,6 +1996,24 @@ function toggleSort() {
   updateSortButton();
 }
 
+function reverseItems() {
+  if (currentView === 'text') {
+    const ta = document.getElementById('input');
+    const lines = ta.value.split('\n').filter(l => l.trim());
+    ta.value = lines.reverse().join('\n');
+    pushTextareaHistory(ta.value, 'reverse');
+  } else {
+    if (editingId) stopEditInDOM(editingId);
+    editingId = null;
+    items.reverse();
+    reindex();
+    pushHistory('reverse');
+    saveToStorage();
+    render();
+  }
+  showToast('Reversed item order');
+}
+
 function applyCheckedVisibility(hidden) {
   document.getElementById('list').classList.toggle('hide-checked', hidden);
   const btn = document.getElementById('checkedToggle');
@@ -2177,6 +2211,7 @@ function initEventListeners() {
   document.getElementById('pasteBtn').addEventListener('click', () => { pasteFromClipboard(); closeFooterMenu(); });
   document.getElementById('toggleCheckboxBtn').addEventListener('click', () => { toggleCheckboxFormat(); closeFooterMenu(); });
   document.getElementById('sortBtn').addEventListener('click', () => { toggleSort(); closeFooterMenu(); });
+  document.getElementById('reverseBtn').addEventListener('click', () => { reverseItems(); closeFooterMenu(); });
   document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); closeFooterMenu(); });
   document.getElementById('copyAllListsBtn').addEventListener('click', () => { copyAllListsToClipboard(); closeMenu(); });
   document.getElementById('importListsBtn').addEventListener('click', () => { importListsFromClipboard(); closeMenu(); });
