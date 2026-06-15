@@ -735,6 +735,10 @@ button.secondary.danger:hover:not(:disabled) {
   height: 1rem;
 }
 
+.add-row-move-btn {
+  margin-right: 0;
+}
+
 .list {
   display: flex;
   flex-direction: column;

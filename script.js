@@ -25,8 +25,10 @@ let draggingTabEl = null;
 let tabTouchStartX = 0;
 let tabTouchDragging = false;
 
-let addItemInsertIndex = null; // null = after all items, number = before item at that index
-let addItemAbove = localStorage.getItem('addItemAbove') !== '0';
+let addItemInsertIndex1 = 0; // null = after all items, number = before item at that index
+let addItemInsertIndex2 = null;
+let addItemAbove1 = localStorage.getItem('addItemAbove1') === '1';
+let addItemAbove2 = localStorage.getItem('addItemAbove2') !== '0';
 
 const TOAST_DURATION = 2200;
 const TOAST_UNDO_DURATION = 5000;
@@ -1047,11 +1049,8 @@ function saveToStorage() {
   saveCurrentListItems();
   localStorage.setItem('checklist-lists', JSON.stringify(lists));
   localStorage.setItem('checklist-active', activeListId);
-  if (addItemInsertIndex !== null) {
-    localStorage.setItem('checklist-add-row', addItemInsertIndex);
-  } else {
-    localStorage.removeItem('checklist-add-row');
-  }
+  localStorage.setItem('checklist-add-row-1', addItemInsertIndex1 === null ? 'end' : addItemInsertIndex1);
+  localStorage.setItem('checklist-add-row-2', addItemInsertIndex2 === null ? 'end' : addItemInsertIndex2);
 }
 
 function loadFromStorage() {
@@ -1067,8 +1066,10 @@ function loadFromStorage() {
       lists = [{ id: generateId(), name: 'Today', items: [] }];
     }
     activeListId = (savedActive && lists.find(l => l.id === savedActive)) ? savedActive : lists[0].id;
-    const savedAddRow = localStorage.getItem('checklist-add-row');
-    addItemInsertIndex = savedAddRow !== null ? Number(savedAddRow) : null;
+    const savedAddRow1 = localStorage.getItem('checklist-add-row-1');
+    addItemInsertIndex1 = savedAddRow1 === null ? 0 : (savedAddRow1 === 'end' ? null : Number(savedAddRow1));
+    const savedAddRow2 = localStorage.getItem('checklist-add-row-2');
+    addItemInsertIndex2 = savedAddRow2 === null ? null : (savedAddRow2 === 'end' ? null : Number(savedAddRow2));
     listOrderHistory = [snapshotListOrder()];
     listOrderHistoryIndex = 0;
     const activeList = getActiveList();
@@ -1110,12 +1111,18 @@ function updateFooter() {
 
 function render() {
   const list = document.getElementById('list');
-  const addRow = list.querySelector('.add-item-row');
+  const addRow1 = document.getElementById('addItemRow1');
+  const addRow2 = document.getElementById('addItemRow2');
   Array.from(list.querySelectorAll('.item')).forEach(el => el.remove());
   const ordered = [...items].sort((a, b) => a.originalIndex - b.originalIndex);
-  const splitAt = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, ordered.length) : ordered.length;
-  ordered.slice(0, splitAt).forEach(i => list.insertBefore(renderItem(i), addRow));
-  ordered.slice(splitAt).forEach(i => list.appendChild(renderItem(i)));
+  const n = ordered.length;
+  const split1 = addItemInsertIndex1 !== null ? Math.min(addItemInsertIndex1, n) : n;
+  const split2 = addItemInsertIndex2 !== null ? Math.min(addItemInsertIndex2, n) : n;
+  const nodes = ordered.map(renderItem);
+  const sequence = split1 <= split2
+    ? [...nodes.slice(0, split1), addRow1, ...nodes.slice(split1, split2), addRow2, ...nodes.slice(split2)]
+    : [...nodes.slice(0, split2), addRow2, ...nodes.slice(split2, split1), addRow1, ...nodes.slice(split1)];
+  sequence.forEach(node => list.appendChild(node));
   updateFooter();
 }
 
@@ -1254,12 +1261,13 @@ function onDragEnd(div) {
     const byId = new Map(items.map(i => [i.id, i]));
     const reordered = order.map(id => byId.get(id)).filter(Boolean);
 
-    const addRow = list.querySelector('.add-item-row');
-    if (addRow) {
-      const siblings = Array.from(list.children);
-      const countBefore = siblings.slice(0, siblings.indexOf(addRow)).filter(el => el.classList.contains('item')).length;
-      addItemInsertIndex = countBefore < reordered.length ? countBefore : null;
-    }
+    const addRow1 = document.getElementById('addItemRow1');
+    const addRow2 = document.getElementById('addItemRow2');
+    const siblings = Array.from(list.children);
+    const countBefore1 = siblings.slice(0, siblings.indexOf(addRow1)).filter(el => el.classList.contains('item')).length;
+    const countBefore2 = siblings.slice(0, siblings.indexOf(addRow2)).filter(el => el.classList.contains('item')).length;
+    addItemInsertIndex1 = countBefore1 < reordered.length ? countBefore1 : null;
+    addItemInsertIndex2 = countBefore2 < reordered.length ? countBefore2 : null;
 
     const changed = reordered.some((i, idx) => items[idx]?.id !== i.id);
     items = reordered;
@@ -1277,7 +1285,22 @@ function onDragOver(e, div) {
   moveDraggingOver(div, e.clientY);
 }
 
+function wouldViolateAddRowOrder(div, clientY) {
+  if (draggingDiv.id !== 'addItemRow1' && draggingDiv.id !== 'addItemRow2') return false;
+  const list = document.getElementById('list');
+  const addRow1 = document.getElementById('addItemRow1');
+  const addRow2 = document.getElementById('addItemRow2');
+  const rect = div.getBoundingClientRect();
+  const above = (clientY - rect.top) < rect.height / 2;
+  const children = Array.from(list.children).filter(el => el !== draggingDiv);
+  const targetIndex = children.indexOf(div);
+  const insertIndex = above ? targetIndex : targetIndex + 1;
+  children.splice(insertIndex, 0, draggingDiv);
+  return children.indexOf(addRow1) > children.indexOf(addRow2);
+}
+
 function moveDraggingOver(div, clientY) {
+  if (wouldViolateAddRowOrder(div, clientY)) return;
   const rect = div.getBoundingClientRect();
   const above = (clientY - rect.top) < rect.height / 2;
   const parent = div.parentNode;
@@ -1374,7 +1397,7 @@ function cancelEdit(id) {
   }
 }
 
-function addItemFromInput(text) {
+function addItemFromInput(text, row) {
   const trimmed = text.trim();
   if (!trimmed) return false;
 
@@ -1389,45 +1412,63 @@ function addItemFromInput(text) {
   }
 
   const newItem = { id: 'item-' + Date.now(), text: trimmed, originalIndex: 0, checked: false };
-  const currentIdx = addItemInsertIndex !== null ? Math.min(addItemInsertIndex, items.length) : items.length;
+  const insertIndex = row === 1 ? addItemInsertIndex1 : addItemInsertIndex2;
+  const above = row === 1 ? addItemAbove1 : addItemAbove2;
+  const currentIdx = insertIndex !== null ? Math.min(insertIndex, items.length) : items.length;
   items.splice(currentIdx, 0, newItem);
-  addItemInsertIndex = addItemAbove ? currentIdx + 1 : currentIdx;
+  const newIndex = above ? currentIdx + 1 : currentIdx;
+  if (row === 1) {
+    addItemInsertIndex1 = newIndex;
+    if (addItemInsertIndex2 !== null && addItemInsertIndex2 >= currentIdx) addItemInsertIndex2++;
+  } else {
+    addItemInsertIndex2 = newIndex;
+    if (addItemInsertIndex1 !== null && addItemInsertIndex1 > currentIdx) addItemInsertIndex1++;
+  }
   reindex();
   pushHistory();
   saveToStorage();
-
-  const list = document.getElementById('list');
-  const addRow = list.querySelector('.add-item-row');
-  const newEl = renderItem(newItem);
-  if (addItemAbove) {
-    list.insertBefore(newEl, addRow);
-  } else {
-    addRow.insertAdjacentElement('afterend', newEl);
-  }
-  updateFooter();
+  render();
   return true;
 }
 
-function submitAddItem() {
-  const input = document.getElementById('addItemInput');
-  if (addItemFromInput(input.value)) {
+function submitAddItem(row) {
+  const input = document.getElementById(row === 1 ? 'addItemInput1' : 'addItemInput2');
+  if (addItemFromInput(input.value, row)) {
     input.value = '';
     input.focus();
   }
 }
 
-function updateAddDirectionBtn() {
-  const btn = document.getElementById('addDirectionBtn');
+function updateAddDirectionBtn(row) {
+  const btn = document.getElementById(row === 1 ? 'addDirectionBtn1' : 'addDirectionBtn2');
   if (!btn) return;
-  btn.replaceChildren(parseSVG(addItemAbove ? ADD_DIR_UP_ICON : ADD_DIR_DOWN_ICON));
-  btn.title = addItemAbove ? 'Adding above' : 'Adding below';
-  btn.setAttribute('aria-label', addItemAbove ? 'Add above' : 'Add below');
+  const above = row === 1 ? addItemAbove1 : addItemAbove2;
+  btn.replaceChildren(parseSVG(above ? ADD_DIR_UP_ICON : ADD_DIR_DOWN_ICON));
+  btn.title = above ? 'Adding above' : 'Adding below';
+  btn.setAttribute('aria-label', above ? 'Add above' : 'Add below');
 }
 
-function toggleAddDirection() {
-  addItemAbove = !addItemAbove;
-  localStorage.setItem('addItemAbove', addItemAbove ? '1' : '0');
-  updateAddDirectionBtn();
+function toggleAddDirection(row) {
+  if (row === 1) {
+    addItemAbove1 = !addItemAbove1;
+    localStorage.setItem('addItemAbove1', addItemAbove1 ? '1' : '0');
+  } else {
+    addItemAbove2 = !addItemAbove2;
+    localStorage.setItem('addItemAbove2', addItemAbove2 ? '1' : '0');
+  }
+  updateAddDirectionBtn(row);
+}
+
+function moveAddRowToTop() {
+  addItemInsertIndex1 = 0;
+  saveToStorage();
+  render();
+}
+
+function moveAddRowToBottom() {
+  addItemInsertIndex2 = null;
+  saveToStorage();
+  render();
 }
 
 function clearDone() {
@@ -1607,9 +1648,10 @@ function clearList() {
 
 function removeItem(id) {
   const item = items.find(i => i.id === id);
-  if (item && addItemInsertIndex !== null) {
+  if (item) {
     const rank = [...items].sort((a, b) => a.originalIndex - b.originalIndex).findIndex(i => i.id === id);
-    if (rank < addItemInsertIndex) addItemInsertIndex--;
+    if (addItemInsertIndex1 !== null && rank < addItemInsertIndex1) addItemInsertIndex1--;
+    if (addItemInsertIndex2 !== null && rank < addItemInsertIndex2) addItemInsertIndex2--;
   }
   items = items.filter(i => i.id !== id);
   pushHistory();
@@ -2242,9 +2284,14 @@ function initEventListeners() {
   document.getElementById('clearDoneBtn').addEventListener('click', () => { clearDone(); closeFooterMenu(); });
   document.getElementById('archiveListBtn').addEventListener('click', () => { toggleArchiveActiveList(); closeFooterMenu(); });
   document.getElementById('clearBtn').addEventListener('click', clearAction);
-  document.getElementById('addDirectionBtn').addEventListener('click', toggleAddDirection);
-  document.getElementById('addItemBtn').addEventListener('mousedown', e => e.preventDefault());
-  document.getElementById('addItemBtn').addEventListener('click', submitAddItem);
+  document.getElementById('addDirectionBtn1').addEventListener('click', () => toggleAddDirection(1));
+  document.getElementById('addDirectionBtn2').addEventListener('click', () => toggleAddDirection(2));
+  document.getElementById('addItemBtn1').addEventListener('mousedown', e => e.preventDefault());
+  document.getElementById('addItemBtn1').addEventListener('click', () => submitAddItem(1));
+  document.getElementById('addItemBtn2').addEventListener('mousedown', e => e.preventDefault());
+  document.getElementById('addItemBtn2').addEventListener('click', () => submitAddItem(2));
+  document.getElementById('addRowTopBtn').addEventListener('click', moveAddRowToTop);
+  document.getElementById('addRowBottomBtn').addEventListener('click', moveAddRowToBottom);
   document.getElementById('qrModal').addEventListener('click', closeQrCode);
   document.getElementById('qrModalContent').addEventListener('click', e => e.stopPropagation());
   document.getElementById('copyQrCodeBtn').addEventListener('click', copyQrCode);
@@ -2280,11 +2327,24 @@ function init() {
     qrBtn.replaceChildren(parseSVG(QR_ICON), qrSpan);
   }
   updateSortButton();
-  updateAddDirectionBtn();
-  const addItemBtn = document.getElementById('addItemBtn');
-  if (addItemBtn) {
-    addItemBtn.replaceChildren(parseSVG(PLUS_ICON));
-    addItemBtn.setAttribute('aria-label', 'Add item');
+  updateAddDirectionBtn(1);
+  updateAddDirectionBtn(2);
+  [1, 2].forEach(row => {
+    const addItemBtn = document.getElementById(row === 1 ? 'addItemBtn1' : 'addItemBtn2');
+    if (addItemBtn) {
+      addItemBtn.replaceChildren(parseSVG(PLUS_ICON));
+      addItemBtn.setAttribute('aria-label', 'Add item');
+    }
+  });
+  const addRowTopBtn = document.getElementById('addRowTopBtn');
+  if (addRowTopBtn) {
+    addRowTopBtn.replaceChildren(parseSVG(ALIGN_TOP_ICON));
+    addRowTopBtn.setAttribute('aria-label', 'Move row to top');
+  }
+  const addRowBottomBtn = document.getElementById('addRowBottomBtn');
+  if (addRowBottomBtn) {
+    addRowBottomBtn.replaceChildren(parseSVG(ALIGN_BOTTOM_ICON));
+    addRowBottomBtn.setAttribute('aria-label', 'Move row to bottom');
   }
   (function initTheme() {
     const saved = localStorage.getItem('theme');
@@ -2304,13 +2364,14 @@ function init() {
       ta.addEventListener('mouseup', onTextareaCursorMove);
     }
   })();
-  (function initAddItemInput() {
-    const input = document.getElementById('addItemInput');
-    if (input) {
+  (function initAddItemInputs() {
+    [1, 2].forEach(row => {
+      const input = document.getElementById(row === 1 ? 'addItemInput1' : 'addItemInput2');
+      if (!input) return;
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          if (addItemFromInput(input.value)) {
+          if (addItemFromInput(input.value, row)) {
             input.value = '';
             input.focus();
           }
@@ -2318,7 +2379,7 @@ function init() {
       });
       input.addEventListener('blur', () => {
         if (input.value.trim()) {
-          if (addItemFromInput(input.value)) {
+          if (addItemFromInput(input.value, row)) {
             input.value = '';
           }
         }
@@ -2338,7 +2399,7 @@ function init() {
         addRow.addEventListener('dragenter', (e) => { if (draggingDiv) e.preventDefault(); });
         addRow.addEventListener('drop', (e) => e.preventDefault());
       }
-    }
+    });
   })();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./serviceworker.js').catch(err => {

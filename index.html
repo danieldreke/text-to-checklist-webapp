@@ -53,11 +53,19 @@
       </div>
       <div class="pane">
         <div id="list" class="list">
-          <div class="add-item-row">
+          <div class="add-item-row" id="addItemRow1">
             <span class="drag-handle add-item-grip"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>
-            <button id="addDirectionBtn" class="add-direction-btn"></button>
-            <input type="text" id="addItemInput" class="add-item-input" placeholder="Add a new item..." />
-            <button id="addItemBtn" class="add-item-btn" title="Add item"></button>
+            <button id="addDirectionBtn1" class="add-direction-btn"></button>
+            <input type="text" id="addItemInput1" class="add-item-input" placeholder="Add a new item..." />
+            <button id="addRowTopBtn" class="add-direction-btn add-row-move-btn" title="Move row to top"></button>
+            <button id="addItemBtn1" class="add-item-btn" title="Add item"></button>
+          </div>
+          <div class="add-item-row" id="addItemRow2">
+            <span class="drag-handle add-item-grip"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>
+            <button id="addDirectionBtn2" class="add-direction-btn"></button>
+            <input type="text" id="addItemInput2" class="add-item-input" placeholder="Add a new item..." />
+            <button id="addRowBottomBtn" class="add-direction-btn add-row-move-btn" title="Move row to bottom"></button>
+            <button id="addItemBtn2" class="add-item-btn" title="Add item"></button>
           </div>
         </div>
         <div class="list-controls-bar">
