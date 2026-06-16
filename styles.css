@@ -558,7 +558,7 @@ button.list-menu-toggle.active:hover:not(:disabled) {
   min-height: 0;
 }
 
-.layout[data-view="text"] .pane:not(.editor) { display: none; }
+.layout[data-view="text"] .pane:not(.editor) #list { display: none; }
 .layout[data-view="checklist"] .pane.editor { display: none; }
 
 .pane {

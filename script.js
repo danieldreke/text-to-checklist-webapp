@@ -131,6 +131,12 @@ function updateArchiveListBtn() {
   btn.disabled = !archived && lists.filter(l => !l.archived).length <= 1;
 }
 
+function updateDeleteListBtn() {
+  const btn = document.getElementById('deleteListBtn');
+  if (!btn) return;
+  btn.disabled = lists.length <= 1;
+}
+
 function toggleArchiveActiveList() {
   const list = lists.find(l => l.id === activeListId);
   if (!list) return;
@@ -583,6 +589,7 @@ function renderListTabs() {
   dropdownNeedsRebuild = true;
   document.getElementById('list')?.classList.toggle('single-list', lists.filter(l => !l.archived).length < 2);
   updateArchiveListBtn();
+  updateDeleteListBtn();
 
   const listMenuWrapper = document.createElement('div');
   listMenuWrapper.className = 'list-menu-wrapper';
@@ -768,6 +775,7 @@ function onTextareaInput() {
     textareaActiveLine = getTextareaLine();
     pushTextareaHistory(val);
   }
+  updateFooter();
 }
 
 function onTextareaCursorMove() {
@@ -910,6 +918,8 @@ function applyView() {
   document.querySelectorAll('[data-checklist-only]').forEach(el => {
     el.style.display = currentView === 'checklist' ? '' : 'none';
   });
+  updateCheckedToggleBtn();
+  updateFooter();
 }
 
 function switchView(view) {
@@ -1102,6 +1112,13 @@ function loadFromStorage() {
 function updateFooter() {
   const footer = document.getElementById('listFooter');
   if (!footer) return;
+  if (currentView === 'text') {
+    const lines = document.getElementById('input').value.split('\n').filter(l => l.trim());
+    if (lines.length === 0) { footer.textContent = ''; return; }
+    const checked = lines.filter(l => /^\[[xX]\]/.test(l)).length;
+    footer.textContent = `${checked} of ${lines.length} checked, ${lines.length - checked} unchecked`;
+    return;
+  }
   const total = items.length;
   const checked = items.filter(i => i.checked).length;
   const unchecked = total - checked;
@@ -1499,13 +1516,14 @@ function checkAll() {
     const ta = document.getElementById('input');
     const lines = ta.value.split('\n');
     const updated = lines.map(l => {
-      if (/^\[ \]/.test(l)) return '[x]' + l.slice(3);
       if (/^\[x\]/i.test(l)) return l;
-      return l;
+      if (/^\[ \]/.test(l)) return '[x]' + l.slice(3);
+      return l.length ? '[x] ' + l : l;
     });
     if (updated.join('\n') === ta.value) return;
     ta.value = updated.join('\n');
     pushTextareaHistory(ta.value);
+    updateFooter();
     return;
   }
   if (items.every(i => i.checked)) return;
@@ -1524,13 +1542,11 @@ function uncheckAll() {
   if (currentView === 'text') {
     const ta = document.getElementById('input');
     const lines = ta.value.split('\n');
-    const updated = lines.map(l => {
-      if (/^\[x\]/i.test(l)) return '[ ]' + l.slice(3);
-      return l;
-    });
+    const updated = lines.map(l => l.replace(/^\[[xX]\]\s?/, '').replace(/^\[ \]\s?/, ''));
     if (updated.join('\n') === ta.value) return;
     ta.value = updated.join('\n');
     pushTextareaHistory(ta.value);
+    updateFooter();
     return;
   }
   if (items.every(i => !i.checked)) return;
@@ -1553,8 +1569,9 @@ function positionFooterDropdown() {
   const padding = 8;
   dropdown.style.bottom = (window.innerHeight - rect.top + padding) + 'px';
   dropdown.style.top = 'auto';
-  dropdown.style.left = Math.max(padding, rect.left) + 'px';
-  dropdown.style.right = 'auto';
+  dropdown.style.right = Math.max(padding, window.innerWidth - rect.right) + 'px';
+  dropdown.style.left = 'auto';
+  dropdown.style.maxWidth = (window.innerWidth - 2 * padding) + 'px';
 }
 
 function toggleFooterMenu() {
@@ -1968,6 +1985,22 @@ function toggleCheckboxFormat() {
     }
   }).join('\n');
   pushTextareaHistory(ta.value);
+  updateCheckedToggleBtn();
+  updateFooter();
+}
+
+function updateCheckedToggleBtn() {
+  const btn = document.getElementById('checkedToggle');
+  if (!btn) return;
+  const visSpan = document.createElement('span');
+  if (currentView === 'text') {
+    visSpan.textContent = showUncheckedBrackets ? 'Hide [ ]' : 'Show [ ]';
+    btn.replaceChildren(parseSVG(showUncheckedBrackets ? EYE_OFF_ICON : EYE_ICON), visSpan);
+  } else {
+    const hidden = document.getElementById('list').classList.contains('hide-checked');
+    visSpan.textContent = hidden ? 'Show checked' : 'Hide checked';
+    btn.replaceChildren(parseSVG(hidden ? EYE_ICON : EYE_OFF_ICON), visSpan);
+  }
 }
 
 async function pasteFromClipboard() {
@@ -2078,11 +2111,8 @@ function reverseItems() {
 
 function applyCheckedVisibility(hidden) {
   document.getElementById('list').classList.toggle('hide-checked', hidden);
-  const btn = document.getElementById('checkedToggle');
-  const visSpan = document.createElement('span');
-  visSpan.textContent = hidden ? 'Show checked' : 'Hide checked';
-  btn.replaceChildren(parseSVG(hidden ? EYE_ICON : EYE_OFF_ICON), visSpan);
   localStorage.setItem('checkedHidden', hidden ? '1' : '0');
+  updateCheckedToggleBtn();
   updateFooter();
 }
 
@@ -2271,18 +2301,21 @@ function initEventListeners() {
   document.getElementById('menuBtn').addEventListener('click', toggleMenu);
   document.getElementById('footerMenuBtn').addEventListener('click', toggleFooterMenu);
   document.getElementById('pasteBtn').addEventListener('click', () => { pasteFromClipboard(); closeFooterMenu(); });
-  document.getElementById('toggleCheckboxBtn').addEventListener('click', () => { toggleCheckboxFormat(); closeFooterMenu(); });
   document.getElementById('sortBtn').addEventListener('click', () => { toggleSort(); closeFooterMenu(); });
   document.getElementById('reverseBtn').addEventListener('click', () => { reverseItems(); closeFooterMenu(); });
   document.getElementById('copyListBtn').addEventListener('click', () => { copyToClipboard(); closeFooterMenu(); });
   document.getElementById('copyAllListsBtn').addEventListener('click', () => { copyAllListsToClipboard(); closeMenu(); });
   document.getElementById('importListsBtn').addEventListener('click', () => { importListsFromClipboard(); closeMenu(); });
-  document.getElementById('checkedToggle').addEventListener('click', () => { toggleCheckedVisibility(); });
+  document.getElementById('checkedToggle').addEventListener('click', () => {
+    if (currentView === 'text') toggleCheckboxFormat();
+    else toggleCheckedVisibility();
+  });
   document.getElementById('qrCodeBtn').addEventListener('click', () => { createQrCode(); });
   document.getElementById('checkAllBtn').addEventListener('click', () => { checkAll(); closeFooterMenu(); });
   document.getElementById('uncheckAllBtn').addEventListener('click', () => { uncheckAll(); closeFooterMenu(); });
   document.getElementById('clearDoneBtn').addEventListener('click', () => { clearDone(); closeFooterMenu(); });
   document.getElementById('archiveListBtn').addEventListener('click', () => { toggleArchiveActiveList(); closeFooterMenu(); });
+  document.getElementById('deleteListBtn').addEventListener('click', () => { closeFooterMenu(); deleteList(activeListId); });
   document.getElementById('clearBtn').addEventListener('click', clearAction);
   document.getElementById('addDirectionBtn1').addEventListener('click', () => toggleAddDirection(1));
   document.getElementById('addDirectionBtn2').addEventListener('click', () => toggleAddDirection(2));
