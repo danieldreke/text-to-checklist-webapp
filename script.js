@@ -677,7 +677,8 @@ function renderListTabs() {
   }, { passive: false });
   container.appendChild(tabsScroller);
 
-  lists.filter(list => !list.archived).forEach(list => {
+  const activeIsArchived = !!lists.find(l => l.id === activeListId)?.archived;
+  lists.filter(list => !!list.archived === activeIsArchived).forEach(list => {
     const tab = document.createElement('div');
     tab.className = 'list-tab' + (list.id === activeListId && renamingListId !== list.id ? ' active' : '');
     tab.dataset.id = list.id;
