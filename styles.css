@@ -1259,6 +1259,15 @@ button.secondary.danger:hover:not(:disabled) {
     margin-left: -0.2rem;
   }
 
+  .add-item-btn {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+
+  .add-direction-btn {
+    height: 1.6rem;
+  }
+
   .drag-handle {
     padding: 0.1rem 0 0.1rem 0.2rem;
   }
