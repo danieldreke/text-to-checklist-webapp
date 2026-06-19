@@ -516,6 +516,7 @@ function buildDropdownContent(dropdown) {
     item.appendChild(removeBtn);
 
     item.addEventListener('click', (e) => {
+      if (renamingListId === list.id) return;
       if (!tabTouchDragging && !document.body.classList.contains('dragging-list')) {
         if (list.id === activeListId) {
           dropdown.classList.remove('open');
