@@ -1767,10 +1767,17 @@ function moveItemToPosition(id, position) {
 
 let moveDropdownEl = null;
 let moveDropdownItemId = null;
+let recentDestIds = JSON.parse(localStorage.getItem('checklist-recent-dests') || '[]');
+
+function recordRecentDest(listId) {
+  recentDestIds = [listId, ...recentDestIds.filter(id => id !== listId)].slice(0, 3);
+  localStorage.setItem('checklist-recent-dests', JSON.stringify(recentDestIds));
+}
 
 function openMoveDropdown(itemId, btnEl, mode = 'move') {
-  const otherLists = lists.filter(l => l.id !== activeListId);
-  if (otherLists.length === 0) return;
+  const otherLists = lists.filter(l => l.id !== activeListId && !l.archived);
+  const archivedLists = lists.filter(l => l.id !== activeListId && l.archived);
+  if (otherLists.length === 0 && archivedLists.length === 0) return;
 
   if (moveDropdownEl && moveDropdownItemId === itemId) {
     closeMoveDropdown();
@@ -1785,17 +1792,69 @@ function openMoveDropdown(itemId, btnEl, mode = 'move') {
   title.className = 'move-dropdown-title';
   title.textContent = mode === 'copy' ? 'Copy to list:' : 'Move to list:';
   el.appendChild(title);
-  otherLists.forEach(list => {
+
+  const recentLists = recentDestIds.map(id => otherLists.find(l => l.id === id)).filter(Boolean);
+  if (recentLists.length > 0) {
+    const recentLabel = document.createElement('div');
+    recentLabel.className = 'move-dropdown-section-label';
+    recentLabel.textContent = 'Most Recent';
+    el.appendChild(recentLabel);
+    recentLists.forEach(list => {
+      const btn = document.createElement('button');
+      btn.className = 'secondary';
+      btn.textContent = list.name;
+      btn.addEventListener('click', () => {
+        recordRecentDest(list.id);
+        if (mode === 'copy') copyItemToList(itemId, list.id);
+        else moveItemToList(itemId, list.id);
+        closeMoveDropdown();
+      });
+      el.appendChild(btn);
+    });
+    // const divider = document.createElement('div');
+    // divider.className = 'move-dropdown-divider';
+    // el.appendChild(divider);
+    const allLabel = document.createElement('div');
+    allLabel.className = 'move-dropdown-section-label';
+    allLabel.textContent = `All lists (${otherLists.length})`;
+    el.appendChild(allLabel);
+  }
+
+  const makeListBtn = (list) => {
     const btn = document.createElement('button');
     btn.className = 'secondary';
     btn.textContent = list.name;
     btn.addEventListener('click', () => {
+      recordRecentDest(list.id);
       if (mode === 'copy') copyItemToList(itemId, list.id);
       else moveItemToList(itemId, list.id);
       closeMoveDropdown();
     });
-    el.appendChild(btn);
-  });
+    return btn;
+  };
+
+  otherLists.forEach(list => el.appendChild(makeListBtn(list)));
+
+  if (archivedLists.length > 0) {
+    const toggleLabel = document.createElement('div');
+    toggleLabel.className = 'move-dropdown-section-label move-dropdown-archived-toggle';
+    toggleLabel.textContent = `Archived lists (${archivedLists.length}) >`;
+    el.appendChild(toggleLabel);
+
+    const archivedGroup = document.createElement('div');
+    archivedGroup.className = 'move-dropdown-archived-group';
+    archivedGroup.style.display = 'none';
+    archivedLists.forEach(list => archivedGroup.appendChild(makeListBtn(list)));
+    el.appendChild(archivedGroup);
+
+    toggleLabel.addEventListener('click', () => {
+      const hidden = archivedGroup.style.display === 'none';
+      archivedGroup.style.display = hidden ? 'contents' : 'none';
+      toggleLabel.textContent = hidden ? `Archived lists (${archivedLists.length})` : `Archived lists (${archivedLists.length}) >`;
+      positionFloatingMenu(el, btnEl);
+    });
+  }
+
   document.body.appendChild(el);
   moveDropdownEl = el;
   positionFloatingMenu(el, btnEl);
